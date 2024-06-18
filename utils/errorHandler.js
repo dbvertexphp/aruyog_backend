@@ -1,6 +1,10 @@
- export default class ErrorHandler extends Error {
+// utils/errorHandler.js
+class ErrorHandler extends Error {
   constructor(statusCode, message) {
     super(message);
     this.statusCode = statusCode;
+    Error.captureStackTrace(this, this.constructor);
   }
 }
+
+export default ErrorHandler;

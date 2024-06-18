@@ -12,9 +12,13 @@
      "type": "module",
      "license": "ISC",
      "dependencies": {
+          "bcryptjs": "^2.4.3",
+          "connectycube": "^3.29.0",
           "cors": "2.8.5",
+          "crypto-js": "^4.2.0",
           "dotenv": "16.4.5",
           "express": "4.19.2",
+          "moment-timezone": "^0.5.45",
           "mongoose": "^8.4.3",
           "morgan": "1.10.0"
      },
