@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import path from "path";
 dotenv.config({ path: "./.env" });
 const __dirname1 = path.resolve();
-import { connectDB } from "./config/db.js";
+import connectDB from "./config/db.js";
 
 export const envMode = process.env.NODE_ENV?.trim() || "DEVELOPMENT";
 
