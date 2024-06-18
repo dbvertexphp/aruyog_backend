@@ -6,11 +6,12 @@ import dotenv from "dotenv";
 import path from "path";
 dotenv.config({ path: "./.env" });
 const __dirname1 = path.resolve();
+import { connectDB } from "./config/db.js";
 
 export const envMode = process.env.NODE_ENV?.trim() || "DEVELOPMENT";
 
 const app = express();
-
+connectDB();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({ origin: " * ", credentials: true }));
