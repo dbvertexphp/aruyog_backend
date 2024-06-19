@@ -1,3 +1,7 @@
+# Created by https://www.toptal.com/developers/gitignore/api/node
+# Edit at https://www.toptal.com/developers/gitignore?templates=node
+
+### Node ###.well
 # Logs
 logs
 *.log
@@ -44,7 +48,6 @@ jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
-
 # TypeScript cache
 *.tsbuildinfo
 
@@ -73,7 +76,6 @@ web_modules/
 .yarn-integrity
 
 # dotenv environment variable files
-
 .env.development.local
 .env.test.local
 .env.production.local
@@ -102,7 +104,6 @@ dist
 
 # vuepress v2.x temp and cache directory
 .temp
-.cache
 
 # Docusaurus cache and generated files
 .docusaurus
@@ -128,3 +129,14 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+### Node Patch ###
+# Serverless Webpack directories
+.webpack/
+
+# Optional stylelint cache
+
+# SvelteKit build / generate output
+.svelte-kit
+
+# End of https://www.toptal.com/developers/gitignore/api/node

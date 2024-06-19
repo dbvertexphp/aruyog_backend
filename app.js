@@ -1,58 +1,89 @@
-import express from "express";
-import cors from "cors";
-import { errorMiddleware } from "./middlewares/error.js";
-import morgan from "morgan";
-import dotenv from "dotenv";
-import path from "path";
-import connectDB from "./config/db.js";
-import UserRouter from "./routes/userRoute.js";
-import { EventEmitter } from "events";
+const express = require("express");
+const connectDB = require("./config/db.js");
+const createSocketIO = require("./config/socket_io.js");
+const dotenv = require("dotenv");
+const cookieParser = require("cookie-parser");
+const http = require("http");
+const ngrok = require("@ngrok/ngrok");
+// --------------------- Routes -------------------------------
+const { userRoutes } = require("./routes/userRoutes.js");
+const { chatRoutes } = require("./routes/chatRoutes.js");
+const { messageRoutes } = require("./routes/messageRoutes.js");
+const { categoryRoutes } = require("./routes/categoryRoutes.js");
+const { videoRoutes } = require("./routes/videoRoutes.js");
+const { reelRoutes } = require("./routes/reelRoutes.js");
+const { companyDetails } = require("./routes/companydetailsRoutes.js");
+const { jobRoutes } = require("./routes/jobRoutes.js");
+const { myfriendRoutes } = require("./routes/myfrindsRoutes.js");
+const { subscribeRoutes } = require("./routes/subscribeRoutes.js");
+const { timelineRoutes } = require("./routes/timelineRoutes.js");
+const { commanRoutes } = require("./routes/commanRoutes.js");
+const { transactionRoutes } = require("./routes/transactionRoutes.js");
+const { adminRoutes } = require("./routes/adminRoutes.js");
+// --------------------- Routes -------------------------------
+const { notFound, errorHandler } = require("./middleware/errorMiddleware.js");
+const cors = require("cors");
+const path = require("path");
+require("dotenv").config();
 
-dotenv.config({ path: "./.env" });
-const __dirname1 = path.resolve();
-
-export const envMode = process.env.NODE_ENV?.trim() || "DEVELOPMENT";
-
-const app = express();
 connectDB();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cors({ origin: " * ", credentials: true }));
-app.use(morgan("dev"));
+const app = express();
+app.use(cookieParser());
+const __dirname1 = path.resolve();
 app.use(express.static(path.join(__dirname1, "")));
+app.use("/public", express.static("public"));
+app.use("/uploads", express.static("uploads"));
+app.use(express.json()); // to accept JSON data
+app.use(cors());
+app.use(
+      cors({
+            origin: "*", // Replace with your React app's origin
+      })
+);
 
-// Increase default max listeners to avoid warnings
-EventEmitter.defaultMaxListeners = 15;
+// --------------------------Routes------------------------------
 
-// --------------------- Routes -------------------------------
-app.use("/api/user", UserRouter);
-// --------------------- Routes -------------------------------
+app.use("/api/user", userRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/message", messageRoutes);
+app.use("/api/category", categoryRoutes);
+app.use("/api/video", videoRoutes);
+app.use("/api/reel", reelRoutes);
+app.use("/api/CompanyDetails", companyDetails);
+app.use("/api/job", jobRoutes);
+app.use("/api/timeline", timelineRoutes);
+app.use("/api/myfriend", myfriendRoutes);
+app.use("/api/subscribe", subscribeRoutes);
+app.use("/api/comman", commanRoutes);
+app.use("/api/transaction", transactionRoutes);
+app.use("/api/admin", adminRoutes);
+// --------------------------Routes------------------------------
 
-if (process.env.NODE_ENV === "production") {
-  app.use(express.static(path.join(__dirname1, "/view")));
-  app.get("*", (req, res) =>
-    res.sendFile(path.resolve(__dirname1, "view", "index.html"))
-  );
+// --------------------------deploymentssssss------------------------------
+
+if (process.env.NODE_ENV == "production") {
+      app.use(express.static(path.join(__dirname1, "/view")));
+
+      app.get("*", (req, res) =>
+            res.sendFile(path.resolve(__dirname1, "view", "index.html"))
+      );
 } else {
-  app.get("/", (req, res) => {
-    res.send("API is running..");
-  });
+      app.get("/", (req, res) => {
+            res.send("API is running..");
+      });
 }
 
-// your routes here
-app.get("*", (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: "Page not found",
-  });
-});
+// --------------------------deployment------------------------------
 
-app.use(errorMiddleware);
+// Error Handling middlewares
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 const BASE_URL = process.env.BASE_URL;
 
-app.listen(PORT, () => {
-  console.log(`Server running on PORT ${PORT}...`);
-  console.log(`Base URL: ${BASE_URL}`);
+const server = app.listen(PORT, () => {
+      console.log(`Server running on PORT ${PORT}...`);
+      console.log(`Base URL: ${BASE_URL}`);
 });
+const io = createSocketIO(server);
