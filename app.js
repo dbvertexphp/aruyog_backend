@@ -1,6 +1,6 @@
 const express = require("express");
 const connectDB = require("./config/db.js");
-const createSocketIO = require("./config/socket_io.js");
+// const createSocketIO = require("./config/socket_io.js");
 const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const http = require("http");
@@ -36,9 +36,9 @@ app.use("/uploads", express.static("uploads"));
 app.use(express.json()); // to accept JSON data
 app.use(cors());
 app.use(
-      cors({
-            origin: "*", // Replace with your React app's origin
-      })
+  cors({
+    origin: "*", // Replace with your React app's origin
+  })
 );
 
 // --------------------------Routes------------------------------
@@ -62,15 +62,13 @@ app.use("/api/admin", adminRoutes);
 // --------------------------deploymentssssss------------------------------
 
 if (process.env.NODE_ENV == "production") {
-      app.use(express.static(path.join(__dirname1, "/view")));
+  app.use(express.static(path.join(__dirname1, "/view")));
 
-      app.get("*", (req, res) =>
-            res.sendFile(path.resolve(__dirname1, "view", "index.html"))
-      );
+  app.get("*", (req, res) => res.sendFile(path.resolve(__dirname1, "view", "index.html")));
 } else {
-      app.get("/", (req, res) => {
-            res.send("API is running..");
-      });
+  app.get("/", (req, res) => {
+    res.send("API is running..");
+  });
 }
 
 // --------------------------deployment------------------------------
@@ -83,7 +81,7 @@ const PORT = process.env.PORT;
 const BASE_URL = process.env.BASE_URL;
 
 const server = app.listen(PORT, () => {
-      console.log(`Server running on PORT ${PORT}...`);
-      console.log(`Base URL: ${BASE_URL}`);
+  console.log(`Server running on PORT ${PORT}...`);
+  console.log(`Base URL: ${BASE_URL}`);
 });
-const io = createSocketIO(server);
+// const io = createSocketIO(server);
