@@ -1,6 +1,6 @@
 const express = require("express");
 const connectDB = require("./config/db.js");
-// const createSocketIO = require("./config/socket_io.js");
+const createSocketIO = require("./config/socket_io.js");
 const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const http = require("http");
@@ -84,4 +84,4 @@ const server = app.listen(PORT, () => {
   console.log(`Server running on PORT ${PORT}...`);
   console.log(`Base URL: ${BASE_URL}`);
 });
-// const io = createSocketIO(server);
+const io = createSocketIO(server);
