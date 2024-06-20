@@ -24,6 +24,7 @@ const { adminRoutes } = require("./routes/adminRoutes.js");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware.js");
 const cors = require("cors");
 const path = require("path");
+const { subCategoryRoutes } = require("./routes/subCategoryRoutes.js");
 require("dotenv").config();
 
 connectDB();
@@ -36,9 +37,9 @@ app.use("/uploads", express.static("uploads"));
 app.use(express.json()); // to accept JSON data
 app.use(cors());
 app.use(
-      cors({
-            origin: "*", // Replace with your React app's origin
-      })
+  cors({
+    origin: "*", // Replace with your React app's origin
+  })
 );
 
 // --------------------------Routes------------------------------
@@ -47,6 +48,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/category", categoryRoutes);
+app.use("/api/subCategory", subCategoryRoutes);
 app.use("/api/video", videoRoutes);
 app.use("/api/reel", reelRoutes);
 app.use("/api/CompanyDetails", companyDetails);
@@ -62,18 +64,25 @@ app.use("/api/admin", adminRoutes);
 // --------------------------deploymentssssss------------------------------
 
 if (process.env.NODE_ENV == "production") {
-      app.use(express.static(path.join(__dirname1, "/view")));
+  app.use(express.static(path.join(__dirname1, "/view")));
 
-      app.get("*", (req, res) =>
-            res.sendFile(path.resolve(__dirname1, "view", "index.html"))
-      );
+  app.get("*", (req, res) => res.sendFile(path.resolve(__dirname1, "view", "index.html")));
 } else {
-      app.get("/", (req, res) => {
-            res.send("API is running..");
-      });
+  app.get("/", (req, res) => {
+    res.send("API is running..");
+  });
 }
 
 // --------------------------deployment------------------------------
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    message: err.message || "Internal Server Error",
+    status: false,
+  });
+});
 
 // Error Handling middlewares
 app.use(notFound);
@@ -83,7 +92,7 @@ const PORT = process.env.PORT;
 const BASE_URL = process.env.BASE_URL;
 
 const server = app.listen(PORT, () => {
-      console.log(`Server running on PORT ${PORT}...`);
-      console.log(`Base URL: ${BASE_URL}`);
+  console.log(`Server running on PORT ${PORT}...`);
+  console.log(`Base URL: ${BASE_URL}`);
 });
 const io = createSocketIO(server);

@@ -1,56 +1,44 @@
 const express = require("express");
 const {
-      registerUser,
-      authUser,
-      getUsers,
-      verifyOtp,
-      resendOTP,
-      updateProfileData,
-      forgetPassword,
-      ChangePassword,
-      profilePicUpload,
-      logoutUser,
-      bank_Detail_create,
-      getAllUsers,
-      getAllDashboardCount,
-      addReview,
-      Watch_time_update,
-      getUserView,
-      getBankDetails,
-      websiteNotificationToken,
-      NotificationList,
-      ForgetresendOTP,
-      getProfilePicUploadUrlS3,
-      profilePicKey,
-      getReview,
-      getUnreadCount,
-      updateProfileDataByAdmin,
-      getNotificationId,
-      searchUsers,
-      getAllUsersWebsite,
-      getBankDetailsAdmin,
-      updateUserWatchTime,
-      UserAdminStatus,
-      ManullyListUpdate,
-      UpdateMobileAdmin,
-      updateAllUsersFullName,
-      Put_Profile_Pic_munally,
-      Delete_DeleteSignedUrlS3
+  registerUser,
+  authUser,
+  getUsers,
+  verifyOtp,
+  resendOTP,
+  updateProfileData,
+  forgetPassword,
+  ChangePassword,
+  profilePicUpload,
+  logoutUser,
+  bank_Detail_create,
+  getAllUsers,
+  getAllDashboardCount,
+  addReview,
+  Watch_time_update,
+  getUserView,
+  getBankDetails,
+  websiteNotificationToken,
+  NotificationList,
+  ForgetresendOTP,
+  getProfilePicUploadUrlS3,
+  profilePicKey,
+  getReview,
+  getUnreadCount,
+  updateProfileDataByAdmin,
+  getNotificationId,
+  searchUsers,
+  getAllUsersWebsite,
+  getBankDetailsAdmin,
+  updateUserWatchTime,
+  UserAdminStatus,
+  ManullyListUpdate,
+  UpdateMobileAdmin,
+  updateAllUsersFullName,
+  Put_Profile_Pic_munally,
+  Delete_DeleteSignedUrlS3,
 } = require("../controllers/userControllers.js");
-const {
-      CreateCalendar,
-      GetSpecialEntries,
-      FindPriceByDateTime,
-      GetNormalEntries,
-} = require("../controllers/calendarControllers.js");
-const {
-      createHire,
-      getHireListByUserId,
-      updateHireStatus,
-      getAllHireList,
-      getHireByMe,
-      HirePaymentUpdateStatus,
-} = require("../controllers/hireControllers.js");
+const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
+const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
 const protect = require("../middleware/authMiddleware.js");
 const commonProtect = require("../middleware/comman_authMiddleware.js");
 
@@ -89,15 +77,11 @@ userRoutes.route("/addReview").post(protect, addReview);
 userRoutes.route("/updateUserWatchTime").post(protect, updateUserWatchTime);
 userRoutes.route("/getReview/:id/:limit").get(getReview);
 userRoutes.route("/Watch_time_update").post(protect, Watch_time_update);
-userRoutes
-      .route("/websiteNotificationToken")
-      .post(protect, websiteNotificationToken);
+userRoutes.route("/websiteNotificationToken").post(protect, websiteNotificationToken);
 userRoutes.route("/NotificationList/:limit").get(protect, NotificationList);
 userRoutes.route("/getNotificationId").post(protect, getNotificationId);
 userRoutes.route("/getUnreadCount").get(protect, getUnreadCount);
-userRoutes
-      .route("/getProfilePicUploadUrlS3")
-      .get(protect, getProfilePicUploadUrlS3);
+userRoutes.route("/getProfilePicUploadUrlS3").get(protect, getProfilePicUploadUrlS3);
 userRoutes.route("/profilePicKey").post(protect, profilePicKey);
 
 /*------------- Calendar Routes --------------------- */
@@ -108,18 +92,14 @@ userRoutes.route("/GetNormalEntries").get(protect, GetNormalEntries);
 /*------------- Hire Routes --------------------- */
 userRoutes.route("/createHire").post(protect, createHire);
 userRoutes.route("/updateHireStatus").post(protect, updateHireStatus);
-userRoutes
-      .route("/HirePaymentUpdateStatus")
-      .post(protect, HirePaymentUpdateStatus);
+userRoutes.route("/HirePaymentUpdateStatus").post(protect, HirePaymentUpdateStatus);
 userRoutes.route("/getHireList").get(protect, getHireListByUserId);
 userRoutes.route("/getHireByMe").get(protect, getHireByMe);
 
 /*------------- Admin Routes --------------------- */
 userRoutes.route("/getAllUsers").post(protect, getAllUsers);
 userRoutes.route("/getAllHireList").post(protect, getAllHireList);
-userRoutes
-      .route("/updateProfileDataByAdmin")
-      .post(protect, updateProfileDataByAdmin);
+userRoutes.route("/updateProfileDataByAdmin").post(protect, updateProfileDataByAdmin);
 userRoutes.route("/getAllDashboardCount").get(protect, getAllDashboardCount);
 
 module.exports = { userRoutes };
