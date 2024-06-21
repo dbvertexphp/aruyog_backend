@@ -1650,45 +1650,45 @@ const getProfilePicUploadUrlS3 = asyncHandler(async (req, res) => {
   });
 });
 
-const updateUserWatchTime = async (req, res) => {
-  const userId = req.user._id;
-  const newTime = req.body.time; // Assuming the new time is passed in the request body
+// const updateUserWatchTime = async (req, res) => {
+//   const userId = req.user._id;
+//   const newTime = req.body.time; // Assuming the new time is passed in the request body
 
-  try {
-    // Find the user by user_id to get the current watch_time
-    const user = await User.findById(userId);
+//   try {
+//     // Find the user by user_id to get the current watch_time
+//     const user = await User.findById(userId);
 
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-        status: false,
-      });
-    }
+//     if (!user) {
+//       return res.status(404).json({
+//         message: "User not found",
+//         status: false,
+//       });
+//     }
 
-    // Get the current watch_time from the user object
-    let currentWatchTime = user.watch_time || 0;
+//     // Get the current watch_time from the user object
+//     let currentWatchTime = user.watch_time || 0;
 
-    // Convert the current watch_time and new time to numbers and add them
-    currentWatchTime = Number(currentWatchTime) + Number(newTime);
+//     // Convert the current watch_time and new time to numbers and add them
+//     currentWatchTime = Number(currentWatchTime) + Number(newTime);
 
-    // Update the watch_time field in the User table
-    await User.findByIdAndUpdate(userId, {
-      watch_time: currentWatchTime,
-    });
+//     // Update the watch_time field in the User table
+//     await User.findByIdAndUpdate(userId, {
+//       watch_time: currentWatchTime,
+//     });
 
-    return res.json({
-      message: "Watch time updated successfully",
-      status: true,
-      watch_time: currentWatchTime,
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      message: "Internal Server Error",
-      status: false,
-    });
-  }
-};
+//     return res.json({
+//       message: "Watch time updated successfully",
+//       status: true,
+//       watch_time: currentWatchTime,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({
+//       message: "Internal Server Error",
+//       status: false,
+//     });
+//   }
+// };
 
 const ManullyListUpdate = asyncHandler(async (req, res) => {
   try {
@@ -1794,7 +1794,7 @@ module.exports = {
   getNotificationId,
   searchUsers,
   getAllUsersWebsite,
-  updateUserWatchTime,
+  // updateUserWatchTime,
   UserAdminStatus,
   ManullyListUpdate,
   UpdateMobileAdmin,

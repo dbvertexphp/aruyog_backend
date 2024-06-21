@@ -29,7 +29,7 @@ const {
   searchUsers,
   getAllUsersWebsite,
   getBankDetailsAdmin,
-  updateUserWatchTime,
+  // updateUserWatchTime,
   UserAdminStatus,
   ManullyListUpdate,
   UpdateMobileAdmin,
@@ -74,7 +74,7 @@ userRoutes.route("/UserAdminStatus").post(protect, UserAdminStatus);
 userRoutes.route("/getBankDetails").get(protect, getBankDetails);
 userRoutes.route("/getBankDetailsAdmin").post(protect, getBankDetailsAdmin);
 userRoutes.route("/addReview").post(protect, addReview);
-userRoutes.route("/updateUserWatchTime").post(protect, updateUserWatchTime);
+// userRoutes.route("/updateUserWatchTime").post(protect, updateUserWatchTime);
 userRoutes.route("/getReview/:id/:limit").get(getReview);
 userRoutes.route("/Watch_time_update").post(protect, Watch_time_update);
 userRoutes.route("/websiteNotificationToken").post(protect, websiteNotificationToken);
