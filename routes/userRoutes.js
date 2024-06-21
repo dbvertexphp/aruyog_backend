@@ -36,6 +36,7 @@ const {
   updateAllUsersFullName,
   Put_Profile_Pic_munally,
   Delete_DeleteSignedUrlS3,
+  getAllTeachers,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -98,6 +99,7 @@ userRoutes.route("/getHireByMe").get(protect, getHireByMe);
 
 /*------------- Admin Routes --------------------- */
 userRoutes.route("/getAllUsers").post(protect, getAllUsers);
+userRoutes.route("/getAllTeachers").post(protect, getAllTeachers);
 userRoutes.route("/getAllHireList").post(protect, getAllHireList);
 userRoutes.route("/updateProfileDataByAdmin").post(protect, updateProfileDataByAdmin);
 userRoutes.route("/getAllDashboardCount").get(protect, getAllDashboardCount);

@@ -8,6 +8,7 @@ const subcategorySchema = mongoose.Schema({
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
   },
+  subcategory_image: { type: String },
 });
 
 // Middleware to capitalize the first letter of subcategory names

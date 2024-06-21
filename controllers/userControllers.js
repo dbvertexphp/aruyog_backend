@@ -876,11 +876,12 @@ const getAllUsers = asyncHandler(async (req, res) => {
   const perPage = 10; // You can adjust this according to your requirements
 
   // Build the query based on search and Short
-  const query = search
-    ? {
-        $or: [{ first_name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }, { last_name: { $regex: search, $options: "i" } }],
-      }
-    : {};
+  const query = {
+    $and: [
+      { $or: [{ first_name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }, { last_name: { $regex: search, $options: "i" } }] },
+      { role: "student" }, // Condition added to fetch only students
+    ],
+  };
 
   // Sorting based on Short field
   let sortCriteria = {};
@@ -950,6 +951,104 @@ const getAllUsers = asyncHandler(async (req, res) => {
       to: (page - 1) * perPage + transformedUsers.length,
       total: totalCount,
     };
+
+    console.log(paginationDetails);
+
+    res.json({
+      Users: paginationDetails,
+      page: page.toString(),
+      total_rows: totalCount,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+    });
+  }
+});
+
+const getAllTeachers = asyncHandler(async (req, res) => {
+  const { page = 1, search = "", Short = "" } = req.body;
+  const perPage = 10; // You can adjust this according to your requirements
+
+  // Build the query based on search and Short
+  const query = {
+    $and: [
+      { $or: [{ first_name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }, { last_name: { $regex: search, $options: "i" } }] },
+      { role: "teacher" }, // Condition added to fetch only students
+    ],
+  };
+
+  // Sorting based on Short field
+  let sortCriteria = {};
+  if (Short === "Review") {
+    sortCriteria = { review: -1 }; // Sort by review in descending order
+  } else if (Short === "watch_time") {
+    sortCriteria = { watch_time: -1 }; // Sort by watch_time in descending order
+  } else if (Short === "Subscribe") {
+    sortCriteria = { subscribe: -1 }; // Sort by subscribe in descending order
+  } else {
+    sortCriteria = { _id: -1 }; // Default sorting
+  }
+
+  try {
+    const users = await User.find(query)
+      .sort(sortCriteria)
+      .skip((page - 1) * perPage)
+      .limit(perPage);
+
+    const totalCount = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / perPage);
+
+    // Map each user to an array of promises
+    const transformedUsersPromises = users.map(async (user) => {
+      let transformedUser = { ...user.toObject() }; // Convert Mongoose document to plain JavaScript object
+      if (transformedUser.pic) {
+        const getSignedUrl_pic = await getSignedUrlS3(transformedUser.pic);
+        transformedUser.pic = getSignedUrl_pic;
+      }
+      if (transformedUser.watch_time) {
+        transformedUser.watch_time = convertSecondsToReadableTimeAdmin(transformedUser.watch_time);
+      }
+      return { user: transformedUser };
+    });
+
+    // Execute all promises concurrently
+    const transformedUsers = await Promise.all(transformedUsersPromises);
+
+    const paginationDetails = {
+      current_page: parseInt(page),
+      data: transformedUsers,
+      first_page_url: `${baseURL}api/users?page=1`,
+      from: (page - 1) * perPage + 1,
+      last_page: totalPages,
+      last_page_url: `${baseURL}api/users?page=${totalPages}`,
+      links: [
+        {
+          url: null,
+          label: "&laquo; Previous",
+          active: false,
+        },
+        {
+          url: `${baseURL}api/users?page=${page}`,
+          label: page.toString(),
+          active: true,
+        },
+        {
+          url: null,
+          label: "Next &raquo;",
+          active: false,
+        },
+      ],
+      next_page_url: null,
+      path: `${baseURL}api/users`,
+      per_page: perPage,
+      prev_page_url: null,
+      to: (page - 1) * perPage + transformedUsers.length,
+      total: totalCount,
+    };
+
     console.log(paginationDetails);
 
     res.json({
@@ -1801,4 +1900,5 @@ module.exports = {
   updateAllUsersFullName,
   Put_Profile_Pic_munally,
   Delete_DeleteSignedUrlS3,
+  getAllTeachers,
 };

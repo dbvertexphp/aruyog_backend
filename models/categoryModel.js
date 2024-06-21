@@ -8,6 +8,7 @@ const subcategorySchema = new mongoose.Schema({
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
   },
+  subcategory_image: { type: String },
 });
 
 // Define the main category schema
@@ -17,6 +18,7 @@ const categorySchema = new mongoose.Schema({
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
   },
+  category_image: { type: String },
   subcategories: [subcategorySchema], // Embed subcategories
 });
 
