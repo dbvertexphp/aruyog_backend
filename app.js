@@ -25,6 +25,7 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware.js");
 const cors = require("cors");
 const path = require("path");
 const { subCategoryRoutes } = require("./routes/subCategoryRoutes.js");
+const { teacherRoutes } = require("./routes/teacherRoutes.js");
 require("dotenv").config();
 
 connectDB();
@@ -45,6 +46,7 @@ app.use(
 // --------------------------Routes------------------------------
 
 app.use("/api/user", userRoutes);
+app.use("/api/teacher", teacherRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/category", categoryRoutes);

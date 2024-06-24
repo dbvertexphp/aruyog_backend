@@ -40,6 +40,11 @@ const userSchema = mongoose.Schema({
   ConnectyCube_id: { type: String, default: null },
   // deleted: { type: Boolean, default: false },
   // deleted_at: { type: Date, default: null },
+  experience: { type: String },
+  education: { type: String },
+  languages: [{ type: String, max: 4 }], // Maximum 4 languages
+  expertise: { type: String },
+  about_me: { type: String },
   datetime: {
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),

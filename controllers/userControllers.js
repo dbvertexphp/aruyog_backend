@@ -24,6 +24,8 @@ const { PutObjectProfilePic, getSignedUrlS3, DeleteSignedUrlS3 } = require("../c
 const dayjs = require("dayjs");
 const { createConnectyCubeUser } = require("../utils/connectyCubeUtils.js");
 const ErrorHandler = require("../utils/errorHandler.js");
+const http = require("https");
+const jwt = require("jsonwebtoken");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -227,12 +229,53 @@ const getUserView = asyncHandler(async (req, res) => {
   }
 });
 
+const sendOTP = (mobile, name, otp) => {
+  // Ensure mobile number is in international format
+  const formattedMobile = `91${mobile}`; // Assuming country code is 91 (India)
+
+  const options = {
+    method: "POST",
+    hostname: "control.msg91.com",
+    port: null,
+    path: `/api/v5/otp?template_id=667933e0d6fc0563602dae12&mobile=${formattedMobile}&authkey=418124AsbkkEdM65f1c681P1`,
+    headers: {
+      "Content-Type": "application/JSON",
+    },
+  };
+
+  const req = http.request(options, function (res) {
+    const chunks = [];
+
+    res.on("data", function (chunk) {
+      chunks.push(chunk);
+    });
+
+    res.on("end", function () {
+      const body = Buffer.concat(chunks);
+      console.log("MSG91 Response:", body.toString());
+    });
+  });
+
+  req.on("error", (e) => {
+    console.error(`Problem with request: ${e.message}`);
+  });
+
+  const postData = JSON.stringify({
+    name: name,
+    otp: otp,
+  });
+
+  console.log("Sending OTP:", postData);
+  req.write(postData);
+  req.end();
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   const { first_name, last_name, email, mobile, password, cpassword, role } = req.body;
   if (!first_name || !last_name || !email || !mobile || !password || !cpassword || !role) {
     throw new ErrorHandler("Please enter all the required fields.", 400);
   }
-  if (password != cpassword) {
+  if (password !== cpassword) {
     throw new ErrorHandler("Password and Confirm Password do not match.", 400);
   }
   const mobileExists = await User.findOne({ mobile });
@@ -240,22 +283,14 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ErrorHandler("User with this mobile number already exists.", 400);
   }
 
-  const EmailExists = await User.findOne({ email });
-  if (EmailExists) {
+  const emailExists = await User.findOne({ email });
+  if (emailExists) {
     throw new ErrorHandler("User with this Email already exists.", 400);
   }
 
   // Generate a 4-digit random OTP
   const otp = generateOTP();
-  //   const type = "Signup";
-  //   TextLocalApi(type, first_name, mobile, otp);
   const full_name = `${first_name} ${last_name}`;
-
-  // Split the date string into day, month, and year components
-  //   const [month, day, year] = dob.split("/");
-
-  // Reformat the date string to the desired format: DD-MM-YYYY
-  //   const dob_format = `${day}-${month}-${year}`;
 
   const { token, id } = await createConnectyCubeUser(mobile, password, email, full_name, role);
 
@@ -265,37 +300,40 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
     mobile,
     role,
-    //     username,
     password,
     otp, // Add the OTP field
-    //     dob: dob_format,
     full_name,
     ConnectyCube_token: token,
     ConnectyCube_id: id,
   });
+
   if (user) {
-    // Increment reels_count in AdminDashboard
+    // Send OTP to user's mobile
+    sendOTP(mobile, full_name, otp);
+
+    // Increment user_count in AdminDashboard
     try {
       const adminDashboard = await AdminDashboard.findOne();
-      adminDashboard.user_count++;
-      await adminDashboard.save();
-    } catch (error) {}
-  }
-  //   const getSignedUrl_pic = await getSignedUrlS3(user.pic);
-  if (user) {
+      if (adminDashboard) {
+        adminDashboard.user_count++;
+        await adminDashboard.save();
+      } else {
+        console.error("AdminDashboard not found");
+      }
+    } catch (error) {
+      console.error("Failed to update admin dashboard:", error);
+    }
+
     res.status(201).json({
       _id: user._id,
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
       mobile: user.mobile,
-      // username: user.username,
-      // isAdmin: user.isAdmin,
-      // pic: getSignedUrl_pic,
       role: user.role,
       otp_verified: user.otp_verified,
-      Connecty_Cube_token: user.ConnectyCube_token,
-      Connecty_Cube_id: user.ConnectyCube_id,
+      ConnectyCube_token: user.ConnectyCube_token,
+      ConnectyCube_id: user.ConnectyCube_id,
       token: generateToken(user._id),
       status: true,
     });
@@ -309,16 +347,8 @@ const authUser = asyncHandler(async (req, res) => {
   const userdata = await User.findOne({ mobile: mobile });
 
   if (!userdata) {
-    throw new ErrorHandler("User Not Found. ", 400);
+    throw new ErrorHandler("User Not Found.", 400);
   }
-
-  //   if (userdata.deleted_at !== null) {
-  //     res.status(200).json({
-  //       message: "Admin has deactivated you please contact admin",
-  //       status: false,
-  //     });
-  //     return;
-  //   }
 
   const isPasswordMatch = await userdata.matchPassword(password);
 
@@ -328,30 +358,26 @@ const authUser = asyncHandler(async (req, res) => {
 
   if (userdata.otp_verified === 0) {
     const otp = generateOTP();
-    // const type = "Signup";
-    // const first_name = userdata.first_name;
-    // TextLocalApi(type, first_name, mobile, otp);
-    const result = await User.updateOne({ _id: userdata._id }, { $set: { otp: otp } });
+    await User.updateOne({ _id: userdata._id }, { $set: { otp: otp } });
     throw new ErrorHandler("OTP Not verified", 400);
   }
 
   if (isPasswordMatch) {
-    const token = generateToken(userdata._id);
+    if (!process.env.JWT_SECRET) {
+      throw new ErrorHandler("JSON_SECRET is not defined in environment variables", 500);
+    }
+
+    const token = jwt.sign({ _id: userdata._id, role: userdata.role }, process.env.JWT_SECRET);
 
     // Set the token in a cookie for 30 days
-
-    // if (!userdata?.IsAdmin || userdata.IsAdmin !== "true") {
-    //       res.setHeader(
-    //             "Set-Cookie",
-    //             cookie.serialize("Websitetoken", token, {
-    //                   httpOnly: false,
-    //                   expires: new Date(
-    //                         Date.now() + 60 * 60 * 24 * 10 * 1000
-    //                   ), // 30 days
-    //                   path: "/",
-    //             })
-    //       );
-    // }
+    res.setHeader(
+      "Set-Cookie",
+      cookie.serialize("Websitetoken", token, {
+        httpOnly: true,
+        expires: new Date(Date.now() + 60 * 60 * 24 * 30 * 1000), // 30 days
+        path: "/",
+      })
+    );
 
     const user = {
       ...userdata._doc,

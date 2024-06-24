@@ -23,16 +23,8 @@ const protect = asyncHandler(async (req, res, next) => {
       // Decode token id
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.id).select("-password");
-
-      // Check if user has deleted_at field set
-      // if (user && user.deleted_at !== null) {
-      //       blacklistToken(token);
-      //       return res.status(401).json({
-      //             message: "Not authorized, user account has been Deactive By Admin ",
-      //             status: false,
-      //       });
-      // }
-
+      req.headers.userID = decoded._id;
+      req.headers.role = decoded.role;
       req.user = user;
       next();
     }
