@@ -271,29 +271,29 @@ const sendOTP = (mobile, name, otp) => {
   req.end();
 };
 
-const registerUser = asyncHandler(async (req, res) => {
+const registerUser = asyncHandler(async (req, res, next) => {
   req.uploadPath = "uploads/profiles";
   upload.single("profile_pic")(req, res, async (err) => {
     if (err) {
-      throw new ErrorHandler(err.message, 400);
+      return next(new ErrorHandler(err.message, 400));
     }
 
     const { first_name, last_name, email, mobile, password, cpassword, role } = req.body;
     if (!first_name || !last_name || !email || !mobile || !password || !cpassword || !role) {
-      throw new ErrorHandler("Please enter all the required fields.", 400);
+      return next(new ErrorHandler("Please enter all the required fields.", 400));
     }
     if (password !== cpassword) {
-      throw new ErrorHandler("Password and Confirm Password do not match.", 400);
+      return next(new ErrorHandler("Password and Confirm Password do not match.", 400));
     }
 
     const mobileExists = await User.findOne({ mobile });
     if (mobileExists) {
-      throw new ErrorHandler("User with this mobile number already exists.", 400);
+      return next(new ErrorHandler("User with this mobile number already exists.", 400));
     }
 
     const emailExists = await User.findOne({ email });
     if (emailExists) {
-      throw new ErrorHandler("User with this Email already exists.", 400);
+      return next(new ErrorHandler("User with this Email already exists.", 400));
     }
 
     // Generate a 4-digit random OTP
@@ -351,7 +351,7 @@ const registerUser = asyncHandler(async (req, res) => {
         status: true,
       });
     } else {
-      throw new ErrorHandler("User registration failed.", 400);
+      return next(new ErrorHandler("User registration failed.", 400));
     }
   });
 });
@@ -407,9 +407,6 @@ const authUser = asyncHandler(async (req, res) => {
     throw new ErrorHandler("Invalid Password", 400);
   }
 });
-
-module.exports = authUser;
-
 const logoutUser = asyncHandler(async (req, res) => {
   const authHeader = req.headers.authorization;
 
@@ -689,36 +686,27 @@ const forgetPassword = asyncHandler(async (req, res) => {
 
 const ChangePassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  const userId = req.user._id; // Assuming you have user authentication middleware
+  if (!oldPassword || !newPassword) {
+    throw new ErrorHandler("Please enter all the required fields.", 400);
+  }
+  const userId = req.headers.userID; // Assuming you have user authentication middleware
 
   // Find the user by _id
   const user = await User.findById(userId);
   if (!user) {
-    res.status(200).json({
-      message: "User Not Found.",
-      status: false,
-    });
-    return;
+    throw new ErrorHandler("User Not Found.", 400);
   }
 
   // Check if the provided old password matches the current password
   const isOldPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
   if (!isOldPasswordCorrect) {
-    res.status(200).json({
-      message: "Incorrect old password.",
-      status: false,
-    });
-    return;
+    throw new ErrorHandler("Incorrect old password.", 400);
   }
 
   // Check if the new password is the same as the old one
   const isNewPasswordSameAsOld = await bcrypt.compare(newPassword, user.password);
   if (isNewPasswordSameAsOld) {
-    res.status(200).json({
-      message: "New password must be different from the old password.",
-      status: false,
-    });
-    return;
+    throw new ErrorHandler("New password must be different from the old password.", 400);
   }
 
   // Hash the new password
@@ -727,7 +715,7 @@ const ChangePassword = asyncHandler(async (req, res) => {
 
   const result = await User.updateOne({ _id: user._id }, { $set: { password: hashedPassword } });
 
-  res.json({
+  res.status(201).json({
     message: "Password changed successfully.",
     status: true,
   });

@@ -42,6 +42,7 @@ const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
 const protect = require("../middleware/authMiddleware.js");
 const commonProtect = require("../middleware/comman_authMiddleware.js");
+const Authorization = require("../middleware/Authorization.middleware.js");
 
 const userRoutes = express.Router();
 
@@ -51,6 +52,9 @@ userRoutes.route("/verifyOtp").post(verifyOtp);
 userRoutes.route("/resendOTP").post(resendOTP);
 userRoutes.route("/ForgetresendOTP").post(ForgetresendOTP);
 userRoutes.route("/forgetPassword").put(forgetPassword);
+
+// student protect route
+userRoutes.route("/ChangePassword").put(protect, Authorization(["student"]), ChangePassword);
 
 userRoutes.route("/ManullyListUpdate").get(ManullyListUpdate);
 userRoutes.route("/updateAllUsersFullName").get(updateAllUsersFullName);
@@ -68,7 +72,6 @@ userRoutes.route("/logoutUser").get(protect, logoutUser);
 userRoutes.route("/updateUserProfile").put(protect, updateProfileData);
 userRoutes.route("/searchUsers").post(protect, searchUsers);
 userRoutes.route("/UpdateMobileAdmin").post(protect, UpdateMobileAdmin);
-userRoutes.route("/ChangePassword").put(protect, ChangePassword);
 userRoutes.route("/profilePicUpload").put(protect, profilePicUpload);
 userRoutes.route("/bankdetailsUpload").post(protect, bank_Detail_create);
 userRoutes.route("/UserAdminStatus").post(protect, UserAdminStatus);
