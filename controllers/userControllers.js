@@ -26,6 +26,7 @@ const { createConnectyCubeUser } = require("../utils/connectyCubeUtils.js");
 const ErrorHandler = require("../utils/errorHandler.js");
 const http = require("https");
 const jwt = require("jsonwebtoken");
+const upload = require("../middleware/uploadMiddleware.js");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -271,75 +272,88 @@ const sendOTP = (mobile, name, otp) => {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { first_name, last_name, email, mobile, password, cpassword, role } = req.body;
-  if (!first_name || !last_name || !email || !mobile || !password || !cpassword || !role) {
-    throw new ErrorHandler("Please enter all the required fields.", 400);
-  }
-  if (password !== cpassword) {
-    throw new ErrorHandler("Password and Confirm Password do not match.", 400);
-  }
-  const mobileExists = await User.findOne({ mobile });
-  if (mobileExists) {
-    throw new ErrorHandler("User with this mobile number already exists.", 400);
-  }
-
-  const emailExists = await User.findOne({ email });
-  if (emailExists) {
-    throw new ErrorHandler("User with this Email already exists.", 400);
-  }
-
-  // Generate a 4-digit random OTP
-  const otp = generateOTP();
-  const full_name = `${first_name} ${last_name}`;
-
-  const { token, id } = await createConnectyCubeUser(mobile, password, email, full_name, role);
-
-  const user = await User.create({
-    first_name,
-    last_name,
-    email,
-    mobile,
-    role,
-    password,
-    otp, // Add the OTP field
-    full_name,
-    ConnectyCube_token: token,
-    ConnectyCube_id: id,
-  });
-
-  if (user) {
-    // Send OTP to user's mobile
-    sendOTP(mobile, full_name, otp);
-
-    // Increment user_count in AdminDashboard
-    try {
-      const adminDashboard = await AdminDashboard.findOne();
-      if (adminDashboard) {
-        adminDashboard.user_count++;
-        await adminDashboard.save();
-      } else {
-        console.error("AdminDashboard not found");
-      }
-    } catch (error) {
-      console.error("Failed to update admin dashboard:", error);
+  req.uploadPath = "uploads/profiles";
+  upload.single("profile_pic")(req, res, async (err) => {
+    if (err) {
+      throw new ErrorHandler(err.message, 400);
     }
 
-    res.status(201).json({
-      _id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      mobile: user.mobile,
-      role: user.role,
-      otp_verified: user.otp_verified,
-      ConnectyCube_token: user.ConnectyCube_token,
-      ConnectyCube_id: user.ConnectyCube_id,
-      token: generateToken(user._id),
-      status: true,
+    const { first_name, last_name, email, mobile, password, cpassword, role } = req.body;
+    if (!first_name || !last_name || !email || !mobile || !password || !cpassword || !role) {
+      throw new ErrorHandler("Please enter all the required fields.", 400);
+    }
+    if (password !== cpassword) {
+      throw new ErrorHandler("Password and Confirm Password do not match.", 400);
+    }
+
+    const mobileExists = await User.findOne({ mobile });
+    if (mobileExists) {
+      throw new ErrorHandler("User with this mobile number already exists.", 400);
+    }
+
+    const emailExists = await User.findOne({ email });
+    if (emailExists) {
+      throw new ErrorHandler("User with this Email already exists.", 400);
+    }
+
+    // Generate a 4-digit random OTP
+    const otp = generateOTP();
+    const full_name = `${first_name} ${last_name}`;
+
+    const { token, id } = await createConnectyCubeUser(mobile, password, email, full_name, role);
+
+    // Get the profile picture path if uploaded
+    const profile_pic = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+
+    const user = await User.create({
+      first_name,
+      last_name,
+      email,
+      mobile,
+      role,
+      password,
+      otp, // Add the OTP field
+      full_name,
+      profile_pic, // Add profile_pic field
+      ConnectyCube_token: token,
+      ConnectyCube_id: id,
     });
-  } else {
-    throw new ErrorHandler("User registration failed.", 400);
-  }
+
+    if (user) {
+      // Send OTP to user's mobile
+      // sendOTP(mobile, full_name, otp);
+
+      // Increment user_count in AdminDashboard
+      try {
+        const adminDashboard = await AdminDashboard.findOne();
+        if (adminDashboard) {
+          adminDashboard.user_count++;
+          await adminDashboard.save();
+        } else {
+          console.error("AdminDashboard not found");
+        }
+      } catch (error) {
+        console.error("Failed to update admin dashboard:", error);
+      }
+
+      res.status(201).json({
+        _id: user._id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        mobile: user.mobile,
+        role: user.role,
+        otp_verified: user.otp_verified,
+        profile_pic: user.profile_pic, // Include profile_pic in response
+        ConnectyCube_token: user.ConnectyCube_token,
+        ConnectyCube_id: user.ConnectyCube_id,
+        token: generateToken(user._id),
+        status: true,
+      });
+    } else {
+      throw new ErrorHandler("User registration failed.", 400);
+    }
+  });
 });
 
 const authUser = asyncHandler(async (req, res) => {
@@ -364,7 +378,7 @@ const authUser = asyncHandler(async (req, res) => {
 
   if (isPasswordMatch) {
     if (!process.env.JWT_SECRET) {
-      throw new ErrorHandler("JSON_SECRET is not defined in environment variables", 500);
+      throw new ErrorHandler("JWT_SECRET is not defined in environment variables", 500);
     }
 
     const token = jwt.sign({ _id: userdata._id, role: userdata.role }, process.env.JWT_SECRET);
@@ -381,7 +395,7 @@ const authUser = asyncHandler(async (req, res) => {
 
     const user = {
       ...userdata._doc,
-      pic: userdata._doc.pic,
+      profile_pic: userdata.profile_pic ? `${req.protocol}://${req.get("host")}/${userdata.profile_pic}` : null,
     };
 
     res.json({
@@ -393,6 +407,8 @@ const authUser = asyncHandler(async (req, res) => {
     throw new ErrorHandler("Invalid Password", 400);
   }
 });
+
+module.exports = authUser;
 
 const logoutUser = asyncHandler(async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -519,47 +535,43 @@ const ForgetresendOTP = asyncHandler(async (req, res) => {
 });
 
 // Set up multer storage and file filter
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/profiles"); // Specify the directory where uploaded files will be stored
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname); // Define the filename for the uploaded file
-  },
-});
+// const storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     cb(null, "uploads/profiles"); // Specify the directory where uploaded files will be stored
+//   },
+//   filename: function (req, file, cb) {
+//     cb(null, Date.now() + "-" + file.originalname); // Define the filename for the uploaded file
+//   },
+// });
 
-const upload = multer({ storage: storage });
+// const upload = multer({ storage: storage });
 
 const profilePicUpload = asyncHandler(async (req, res) => {
-  upload.single("profilePic")(req, res, async (err) => {
-    if (err) {
-      // Handle file upload error
-      throw new ErrorHandler("File upload error", 400);
-    }
-
-    const userId = req.user._id; // Assuming you have user authentication middleware
-
-    // Check if the user exists
-    const user = await User.findById(userId);
-
-    if (!user) {
-      throw new ErrorHandler("User not found", 400);
-    }
-    //     const pic_name_url = await getSignedUrlS3(user.pic);
-    // Update the user's profile picture (if uploaded)
-    if (req.file) {
-      const uploadedFileName = req.file.filename;
-      user.pic = "uploads/profiles/" + uploadedFileName;
-      await user.save();
-
-      return res.status(200).json({
-        message: "Profile picture uploaded successfully",
-        pic: user.pic,
-        status: true,
-      });
-    }
-    throw new ErrorHandler("No file uploaded", 400);
-  });
+  // upload.single("profilePic")(req, res, async (err) => {
+  //   if (err) {
+  //     // Handle file upload error
+  //     throw new ErrorHandler("File upload error", 400);
+  //   }
+  //   const userId = req.user._id; // Assuming you have user authentication middleware
+  //   // Check if the user exists
+  //   const user = await User.findById(userId);
+  //   if (!user) {
+  //     throw new ErrorHandler("User not found", 400);
+  //   }
+  //   //     const pic_name_url = await getSignedUrlS3(user.pic);
+  //   // Update the user's profile picture (if uploaded)
+  //   if (req.file) {
+  //     const uploadedFileName = req.file.filename;
+  //     user.pic = "uploads/profiles/" + uploadedFileName;
+  //     await user.save();
+  //     return res.status(200).json({
+  //       message: "Profile picture uploaded successfully",
+  //       pic: user.pic,
+  //       status: true,
+  //     });
+  //   }
+  //   throw new ErrorHandler("No file uploaded", 400);
+  // });
 });
 const profilePicKey = asyncHandler(async (req, res) => {
   const userId = req.user._id; // Assuming you have user authentication middleware

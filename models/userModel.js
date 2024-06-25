@@ -20,7 +20,6 @@ const userSchema = mongoose.Schema({
   password: { type: String, required: true },
   cpassword: { type: String },
   role: { type: String, required: true },
-  // username: { type: String, unique: true },
   otp: { type: String },
   otp_verified: { type: Number, default: 0 },
   // review: { type: Number, default: 0 },
@@ -31,7 +30,7 @@ const userSchema = mongoose.Schema({
   // Chat_Status: { type: String, default: "Offline" },
   //   address: { type: String },
   //   dob: { type: String },
-  pic: {
+  profile_pic: {
     type: String,
     required: true,
     default: "defult_profile/defult_pic.jpg",
@@ -51,11 +50,11 @@ const userSchema = mongoose.Schema({
   },
 });
 
-userSchema.post(["find", "findOne"], async function (result) {
-  if (result && result.pic && typeof result.pic === "string") {
-    result.pic = await getSignedUrlS3(result.pic);
-  }
-});
+// userSchema.post(["find", "findOne"], async function (result) {
+//   if (result && result.pic && typeof result.pic === "string") {
+//     result.pic = await getSignedUrlS3(result.pic);
+//   }
+// });
 
 const adminDashboardSchema = new mongoose.Schema({
   video_count: { type: Number, default: 0 },
