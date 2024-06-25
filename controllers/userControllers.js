@@ -27,6 +27,7 @@ const ErrorHandler = require("../utils/errorHandler.js");
 const http = require("https");
 const jwt = require("jsonwebtoken");
 const upload = require("../middleware/uploadMiddleware.js");
+const Course = require("../models/course.js");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -1889,6 +1890,238 @@ const Delete_DeleteSignedUrlS3 = asyncHandler(async (req, res) => {
   });
 });
 
+const getAllCourse = asyncHandler(async (req, res) => {
+  const { page = 1, search = "", sort = "" } = req.body;
+  const perPage = 10; // You can adjust this according to your requirements
+
+  // Build the query based on search
+  const query = {
+    $or: [{ title: { $regex: search, $options: "i" } }],
+  };
+
+  // Sorting based on sort field
+  let sortCriteria = {};
+  if (sort === "startTime") {
+    sortCriteria = { startTime: -1 }; // Sort by startTime in descending order
+  } else if (sort === "endTime") {
+    sortCriteria = { endTime: -1 }; // Sort by endTime in descending order
+  } else {
+    sortCriteria = { _id: -1 }; // Default sorting
+  }
+
+  try {
+    const courses = await Course.find(query)
+      .sort(sortCriteria)
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .populate("category_id")
+      .populate("teacher_id");
+
+    const totalCount = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / perPage);
+
+    const transformedCoursesPromises = courses.map(async (course) => {
+      let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
+      console.log(courses);
+      if (transformedCourse.startTime) {
+        transformedCourse.startTime = moment(transformedCourse.startTime).format("DD/MM/YYYY");
+      }
+      if (transformedCourse.endTime) {
+        transformedCourse.endTime = moment(transformedCourse.endTime).format("DD/MM/YYYY");
+      }
+
+      // Fetch subcategory name
+      const category = await Category.findById(transformedCourse.category_id);
+      const subCategory = category.subcategories.id(transformedCourse.sub_category_id);
+
+      transformedCourse.category_name = category.category_name;
+      transformedCourse.subcategory_name = subCategory.subcategory_name;
+
+      // Remove the category and subcategory objects from the response
+      delete transformedCourse.category_id.subcategories;
+      delete transformedCourse.sub_category_id;
+
+      return {
+        _id: transformedCourse._id,
+        title: transformedCourse.title,
+        category_name: transformedCourse.category_name,
+        subcategory_name: transformedCourse.subcategory_name,
+        type: transformedCourse.type,
+        startTime: transformedCourse.startTime,
+        endTime: transformedCourse.endTime,
+        teacher_id: transformedCourse.teacher_id,
+        createdAt: transformedCourse.createdAt,
+        updatedAt: transformedCourse.updatedAt,
+      };
+    });
+
+    // Execute all promises concurrently
+    const transformedCourses = await Promise.all(transformedCoursesPromises);
+
+    const paginationDetails = {
+      current_page: parseInt(page),
+      data: transformedCourses,
+      first_page_url: `${baseURL}api/courses?page=1`,
+      from: (page - 1) * perPage + 1,
+      last_page: totalPages,
+      last_page_url: `${baseURL}api/courses?page=${totalPages}`,
+      links: [
+        {
+          url: null,
+          label: "&laquo; Previous",
+          active: false,
+        },
+        {
+          url: `${baseURL}api/courses?page=${page}`,
+          label: page.toString(),
+          active: true,
+        },
+        {
+          url: null,
+          label: "Next &raquo;",
+          active: false,
+        },
+      ],
+      next_page_url: null,
+      path: `${baseURL}api/courses`,
+      per_page: perPage,
+      prev_page_url: null,
+      to: (page - 1) * perPage + transformedCourses.length,
+      total: totalCount,
+    };
+
+    res.json({
+      Courses: paginationDetails,
+      page: page.toString(),
+      total_rows: totalCount,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+    });
+  }
+});
+
+const getCoursesByTeacherId = asyncHandler(async (req, res) => {
+  const { teacher_id } = req.params; // Teacher ID from URL parameters
+  console.log(req.params);
+  const { page = 1, search = "", sort = "" } = req.body;
+  const perPage = 10; // You can adjust this according to your requirements
+
+  // Build the query based on search and teacher_id
+  const query = {
+    $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
+  };
+
+  // Sorting based on sort field
+  let sortCriteria = {};
+  if (sort === "startTime") {
+    sortCriteria = { startTime: -1 }; // Sort by startTime in descending order
+  } else if (sort === "endTime") {
+    sortCriteria = { endTime: -1 }; // Sort by endTime in descending order
+  } else {
+    sortCriteria = { _id: -1 }; // Default sorting
+  }
+
+  try {
+    const courses = await Course.find(query)
+      .sort(sortCriteria)
+      .skip((page - 1) * perPage)
+      .limit(perPage)
+      .populate("category_id")
+      .populate("teacher_id");
+
+    const totalCount = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCount / perPage);
+
+    const transformedCoursesPromises = courses.map(async (course) => {
+      let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
+
+      if (transformedCourse.startTime) {
+        transformedCourse.startTime = moment(transformedCourse.startTime).format("DD/MM/YYYY");
+      }
+      if (transformedCourse.endTime) {
+        transformedCourse.endTime = moment(transformedCourse.endTime).format("DD/MM/YYYY");
+      }
+
+      // Fetch subcategory name
+      const category = await Category.findById(transformedCourse.category_id);
+      const subCategory = category.subcategories.id(transformedCourse.sub_category_id);
+
+      transformedCourse.category_name = category.category_name;
+      transformedCourse.subcategory_name = subCategory.subcategory_name;
+
+      // Remove the category and subcategory objects from the response
+      delete transformedCourse.category_id.subcategories;
+      delete transformedCourse.sub_category_id;
+
+      return {
+        _id: transformedCourse._id,
+        title: transformedCourse.title,
+        category_name: transformedCourse.category_name,
+        subcategory_name: transformedCourse.subcategory_name,
+        type: transformedCourse.type,
+        startTime: transformedCourse.startTime,
+        endTime: transformedCourse.endTime,
+        teacher_id: transformedCourse.teacher_id,
+        createdAt: transformedCourse.createdAt,
+        updatedAt: transformedCourse.updatedAt,
+      };
+    });
+
+    // Execute all promises concurrently
+    const transformedCourses = await Promise.all(transformedCoursesPromises);
+
+    const paginationDetails = {
+      current_page: parseInt(page),
+      data: transformedCourses,
+      first_page_url: `${baseURL}api/courses/teacher/${teacher_id}?page=1`,
+      from: (page - 1) * perPage + 1,
+      last_page: totalPages,
+      last_page_url: `${baseURL}api/courses/teacher/${teacher_id}?page=${totalPages}`,
+      links: [
+        {
+          url: null,
+          label: "&laquo; Previous",
+          active: false,
+        },
+        {
+          url: `${baseURL}api/courses/teacher/${teacher_id}?page=${page}`,
+          label: page.toString(),
+          active: true,
+        },
+        {
+          url: null,
+          label: "Next &raquo;",
+          active: false,
+        },
+      ],
+      next_page_url: null,
+      path: `${baseURL}api/courses/teacher/${teacher_id}`,
+      per_page: perPage,
+      prev_page_url: null,
+      to: (page - 1) * perPage + transformedCourses.length,
+      total: totalCount,
+    };
+
+    console.log(paginationDetails);
+
+    res.json({
+      Courses: paginationDetails,
+      page: page.toString(),
+      total_rows: totalCount,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+    });
+  }
+});
+
 module.exports = {
   getUsers,
   registerUser,
@@ -1927,4 +2160,6 @@ module.exports = {
   Put_Profile_Pic_munally,
   Delete_DeleteSignedUrlS3,
   getAllTeachers,
+  getAllCourse,
+  getCoursesByTeacherId,
 };

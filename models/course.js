@@ -9,16 +9,8 @@ const courseSchema = new Schema(
       type: String,
       required: true,
     },
-    category_id: {
-      type: Schema.Types.ObjectId,
-      ref: "Category", // Assuming Category is another mongoose model
-      required: true,
-    },
-    sub_category_id: {
-      type: Schema.Types.ObjectId,
-      ref: "Subcategory", // Assuming SubCategory is another mongoose model
-      required: true,
-    },
+    category_id: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+    sub_category_id: { type: Schema.Types.ObjectId, ref: "Category.subcategories", required: true },
     type: {
       type: String,
       enum: ["group_course", "single_course"],
@@ -36,11 +28,7 @@ const courseSchema = new Schema(
         return this.type === "group_course"; // Required only if it's a group course
       },
     },
-    teacher_id: {
-      type: Schema.Types.ObjectId,
-      ref: "User", // Reference to the User model (assuming teachers are users)
-      required: true,
-    },
+    teacher_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
 );

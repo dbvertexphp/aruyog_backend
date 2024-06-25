@@ -105,7 +105,7 @@ const addCourse = asyncHandler(async (req, res) => {
       type: savedCourse.type,
       startTime: savedCourse.startTime,
       endTime: savedCourse.endTime,
-      teacher_id: savedCourse.teacher,
+      teacher_id: savedCourse.teacher_id,
       status: true,
     });
   } catch (error) {
