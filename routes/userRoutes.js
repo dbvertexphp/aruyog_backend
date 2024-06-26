@@ -39,6 +39,8 @@ const {
   getAllTeachers,
   getAllCourse,
   getCoursesByTeacherId,
+  UpdatePayment,
+  getPayments,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -110,5 +112,7 @@ userRoutes.route("/updateProfileDataByAdmin").post(protect, updateProfileDataByA
 userRoutes.route("/getAllDashboardCount").get(protect, getAllDashboardCount);
 userRoutes.route("/getAllCourse").get(getAllCourse);
 userRoutes.route("/getCoursesByTeacherId/:teacher_id").get(protect, getCoursesByTeacherId);
+userRoutes.route("/updatePayment").post(protect, UpdatePayment);
+userRoutes.route("/getPayments").get(protect, getPayments);
 
 module.exports = { userRoutes };

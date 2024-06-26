@@ -28,6 +28,7 @@ const http = require("https");
 const jwt = require("jsonwebtoken");
 const upload = require("../middleware/uploadMiddleware.js");
 const Course = require("../models/course.js");
+const TeacherPayment = require("../models/TeacherPaymentModel.js");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -1949,7 +1950,7 @@ const getAllCourse = asyncHandler(async (req, res) => {
         type: transformedCourse.type,
         startTime: transformedCourse.startTime,
         endTime: transformedCourse.endTime,
-        teacher_id: transformedCourse.teacher_id,
+        teacher: transformedCourse.teacher_id,
         createdAt: transformedCourse.createdAt,
         updatedAt: transformedCourse.updatedAt,
       };
@@ -2065,7 +2066,7 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
         type: transformedCourse.type,
         startTime: transformedCourse.startTime,
         endTime: transformedCourse.endTime,
-        teacher_id: transformedCourse.teacher_id,
+        teacher: transformedCourse.teacher_id,
         createdAt: transformedCourse.createdAt,
         updatedAt: transformedCourse.updatedAt,
       };
@@ -2122,6 +2123,36 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   }
 });
 
+// Add or Update Payment
+const UpdatePayment = asyncHandler(async (req, res, next) => {
+  console.log(req.body);
+  let { master, advance } = req.body;
+
+  // Convert string values to numbers if they exist
+  master = master ? parseFloat(master) : undefined;
+  advance = advance ? parseFloat(advance) : undefined;
+
+  if (isNaN(master) && isNaN(advance)) {
+    return next(new ErrorHandler("Please enter at least one valid field (master or advance).", 400));
+  }
+
+  const update = {};
+  if (!isNaN(master)) update.master = master;
+  if (!isNaN(advance)) update.advance = advance;
+
+  const filter = {}; // Define filter criteria, e.g., a unique identifier
+  const options = { new: true, upsert: true }; // Upsert will create a new document if none exists
+
+  const savedPayment = await TeacherPayment.findOneAndUpdate(filter, update, options);
+
+  res.status(200).json({ message: "Payment added/updated successfully", payment: savedPayment, status: true });
+});
+
+const getPayments = asyncHandler(async (req, res) => {
+  const payments = await TeacherPayment.find({});
+  res.status(200).json({ message: "Payments retrieved successfully", payments });
+});
+
 module.exports = {
   getUsers,
   registerUser,
@@ -2162,4 +2193,6 @@ module.exports = {
   getAllTeachers,
   getAllCourse,
   getCoursesByTeacherId,
+  UpdatePayment,
+  getPayments,
 };
