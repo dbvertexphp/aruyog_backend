@@ -44,6 +44,7 @@ const userSchema = mongoose.Schema({
   languages: [{ type: String, max: 4 }], // Maximum 4 languages
   expertise: { type: String },
   about_me: { type: String },
+  payment_id: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "TeacherPayment" },
   datetime: {
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),

@@ -1024,7 +1024,10 @@ const getAllTeachers = asyncHandler(async (req, res) => {
     const users = await User.find(query)
       .sort(sortCriteria)
       .skip((page - 1) * perPage)
-      .limit(perPage);
+      .limit(perPage)
+      .populate({
+        path: "payment_id",
+      });
 
     const totalCount = await User.countDocuments(query);
     const totalPages = Math.ceil(totalCount / perPage);
@@ -2123,35 +2126,183 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   }
 });
 
-// Add or Update Payment
-const UpdatePayment = asyncHandler(async (req, res, next) => {
-  console.log(req.body);
-  let { master, advance } = req.body;
+const addMasterPayment = asyncHandler(async (req, res, next) => {
+  let { master } = req.body;
 
   // Convert string values to numbers if they exist
   master = master ? parseFloat(master) : undefined;
-  advance = advance ? parseFloat(advance) : undefined;
 
-  if (isNaN(master) && isNaN(advance)) {
-    return next(new ErrorHandler("Please enter at least one valid field (master or advance).", 400));
+  if (isNaN(master) || master === 0) {
+    return next(new ErrorHandler("Please enter a valid master payment amount.", 400));
   }
 
-  const update = {};
-  if (!isNaN(master)) update.master = master;
-  if (!isNaN(advance)) update.advance = advance;
+  const masterPayment = new TeacherPayment({ master });
+  await masterPayment.save();
 
-  const filter = {}; // Define filter criteria, e.g., a unique identifier
-  const options = { new: true, upsert: true }; // Upsert will create a new document if none exists
-
-  const savedPayment = await TeacherPayment.findOneAndUpdate(filter, update, options);
-
-  res.status(200).json({ message: "Payment added/updated successfully", payment: savedPayment, status: true });
+  res.status(200).json({
+    message: "Master payment added successfully",
+    masterPayment,
+    status: true,
+  });
 });
 
-const getPayments = asyncHandler(async (req, res) => {
+const updateMasterPayment = asyncHandler(async (req, res, next) => {
+  let { master, id } = req.body;
+  console.log(req.body);
+  // Convert string values to numbers if they exist
+  master = master ? parseFloat(master) : undefined;
+
+  if (isNaN(master) || master === 0) {
+    return next(new ErrorHandler("Please enter a valid master payment amount.", 400));
+  }
+
+  const masterPayment = await TeacherPayment.findById(id);
+
+  if (!masterPayment) {
+    return next(new ErrorHandler("Master payment not found.", 404));
+  }
+
+  masterPayment.master = master;
+
+  await masterPayment.save();
+
+  res.status(200).json({
+    message: "Master payment updated successfully",
+    masterPayment,
+    status: true,
+  });
+});
+
+const addAdvancePayment = asyncHandler(async (req, res, next) => {
+  let { advance } = req.body;
+  // Convert string values to numbers if they exist
+  advance = advance ? parseFloat(advance) : undefined;
+
+  if (isNaN(advance) || advance === 0) {
+    return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
+  }
+
+  const advancePayment = new TeacherPayment({ advance });
+  await advancePayment.save();
+
+  res.status(200).json({
+    message: "Advance payment added successfully",
+    advancePayment,
+    status: true,
+  });
+});
+
+const updateAdvancePayment = asyncHandler(async (req, res, next) => {
+  let { advance, id } = req.body;
+
+  // Convert string values to numbers if they exist
+  advance = advance ? parseFloat(advance) : undefined;
+
+  if (isNaN(advance) || advance === 0) {
+    return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
+  }
+
+  const advancePayment = await TeacherPayment.findById(id);
+
+  if (!advancePayment) {
+    return next(new ErrorHandler("Advance payment not found.", 404));
+  }
+
+  advancePayment.advance = advance;
+
+  await advancePayment.save();
+
+  res.status(200).json({
+    message: "Advance payment updated successfully",
+    advancePayment,
+    status: true,
+  });
+});
+
+const getMasterAndAdvancePayments = asyncHandler(async (req, res) => {
   const payments = await TeacherPayment.find({});
-  res.status(200).json({ message: "Payments retrieved successfully", payments });
+
+  // Transform payments into the desired format
+  const formattedPayments = [];
+
+  payments.forEach((payment) => {
+    // Add advance payment if exists
+    if (payment.advance) {
+      formattedPayments.push({
+        _id: payment._id,
+        Payment: payment.advance,
+        Type: "advance",
+        createdAt: payment.createdAt,
+        updatedAt: payment.updatedAt,
+      });
+    }
+
+    // Add master payment if exists
+    if (payment.master) {
+      formattedPayments.push({
+        _id: payment._id,
+        Payment: payment.master,
+        Type: "master",
+        createdAt: payment.createdAt,
+        updatedAt: payment.updatedAt,
+      });
+    }
+  });
+
+  res.status(200).json({
+    message: "Payments retrieved successfully",
+    payments: formattedPayments,
+  });
 });
+
+const updateUserPayment = async (req, res, next) => {
+  const { userId, payment_id } = req.body;
+
+  if (!userId || !payment_id) {
+    return next(new ErrorHandler("Please provide userId and payment_id.", 400));
+  }
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    return next(new ErrorHandler("User not found.", 404));
+  }
+
+  // Assuming user has only one payment object to be updated
+  user.payment_id = payment_id;
+
+  user.updatedAt = Date.now();
+
+  await user.save();
+
+  res.status(200).json({
+    _id: user._id,
+    payment_id: user.payment_id,
+    updatedAt: user.updatedAt,
+  });
+};
+
+const getTeacherById = async (req, res, next) => {
+  const { teacher_id, type } = req.body;
+
+  try {
+    const teacher = await User.findById(teacher_id).populate({
+      path: "payment_id", // Populate the payment_id field
+    });
+    const course = await Course.find({ teacher_id: teacher_id, type: type });
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+    res.status(201).json({
+      teacher: teacher,
+      course: course,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error", status: false });
+  }
+};
 
 module.exports = {
   getUsers,
@@ -2193,6 +2344,11 @@ module.exports = {
   getAllTeachers,
   getAllCourse,
   getCoursesByTeacherId,
-  UpdatePayment,
-  getPayments,
+  getMasterAndAdvancePayments,
+  addAdvancePayment,
+  addMasterPayment,
+  updateMasterPayment,
+  updateAdvancePayment,
+  updateUserPayment,
+  getTeacherById,
 };

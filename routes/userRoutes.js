@@ -39,8 +39,13 @@ const {
   getAllTeachers,
   getAllCourse,
   getCoursesByTeacherId,
-  UpdatePayment,
-  getPayments,
+  getMasterAndAdvancePayments,
+  addAdvancePayment,
+  addMasterPayment,
+  updateMasterPayment,
+  updateAdvancePayment,
+  updateUserPayment,
+  getTeacherById,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -112,7 +117,16 @@ userRoutes.route("/updateProfileDataByAdmin").post(protect, updateProfileDataByA
 userRoutes.route("/getAllDashboardCount").get(protect, getAllDashboardCount);
 userRoutes.route("/getAllCourse").get(getAllCourse);
 userRoutes.route("/getCoursesByTeacherId/:teacher_id").get(protect, getCoursesByTeacherId);
-userRoutes.route("/updatePayment").post(protect, UpdatePayment);
-userRoutes.route("/getPayments").get(protect, getPayments);
+
+/*------------- Update Payment --------------------- */
+userRoutes.route("/addMasterPayment").post(protect, addMasterPayment);
+userRoutes.route("/updateMasterPayment").post(protect, updateMasterPayment);
+
+userRoutes.route("/addAdvancePayment").post(protect, addAdvancePayment);
+userRoutes.route("/updateAdvancePayment").post(protect, updateAdvancePayment);
+userRoutes.route("/getMasterAndAdvancePayments").get(protect, getMasterAndAdvancePayments);
+
+userRoutes.route("/updateUserPayment").put(protect, updateUserPayment);
+userRoutes.route("/getTeacherById").post(protect, getTeacherById);
 
 module.exports = { userRoutes };

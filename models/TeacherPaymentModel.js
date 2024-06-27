@@ -4,13 +4,9 @@ const teacherPaymentSchema = new mongoose.Schema(
   {
     master: {
       type: Number,
-      required: true,
-      default: 0,
     },
     advance: {
       type: Number,
-      required: true,
-      default: 0,
     },
   },
   {
