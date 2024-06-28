@@ -29,6 +29,7 @@ const jwt = require("jsonwebtoken");
 const upload = require("../middleware/uploadMiddleware.js");
 const Course = require("../models/course.js");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
+const Favorite = require("../models/favorite.js");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -2304,6 +2305,123 @@ const getTeacherById = async (req, res, next) => {
   }
 };
 
+const addFavoriteTeacher = asyncHandler(async (req, res) => {
+  const { teacher_ids } = req.body;
+  const user_id = req.headers.userID;
+
+  // Check if teacher_ids is a string and convert it to an array
+  let teacherIdsArray = [];
+  if (typeof teacher_ids === "string") {
+    teacherIdsArray = [teacher_ids];
+  } else if (Array.isArray(teacher_ids)) {
+    teacherIdsArray = teacher_ids;
+  } else {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  if (!user_id || !teacherIdsArray.length) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    let favorite = await Favorite.findOne({ user_id });
+
+    if (favorite) {
+      // Ensure favorite.teacher_ids is an array
+      if (!Array.isArray(favorite.teacher_ids)) {
+        favorite.teacher_ids = [];
+      }
+
+      // Avoid duplicates
+      teacherIdsArray.forEach((id) => {
+        if (!favorite.teacher_ids.includes(id)) {
+          favorite.teacher_ids.push(id);
+        }
+      });
+
+      await favorite.save();
+    } else {
+      favorite = new Favorite({ user_id, teacher_ids: teacherIdsArray });
+      await favorite.save();
+    }
+
+    res.status(201).json({ message: "Favorite teachers updated successfully", favorite });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+const removeFavoriteTeacher = asyncHandler(async (req, res) => {
+  const { teacher_ids } = req.body;
+  const user_id = req.headers.userID;
+
+  // Check if teacher_ids is a string and convert it to an array
+  let teacherIdsArray = [];
+  if (typeof teacher_ids === "string") {
+    teacherIdsArray = [teacher_ids];
+  } else if (Array.isArray(teacher_ids)) {
+    teacherIdsArray = teacher_ids;
+  } else {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  if (!user_id || !teacherIdsArray.length) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    let favorite = await Favorite.findOne({ user_id });
+
+    if (favorite) {
+      // Ensure favorite.teacher_ids is an array
+      if (Array.isArray(favorite.teacher_ids)) {
+        console.log("Before removal:", favorite.teacher_ids);
+        // Remove the specified teacher_ids
+        favorite.teacher_ids = favorite.teacher_ids.filter((id) => !teacherIdsArray.includes(id.toString()));
+        console.log("After removal:", favorite.teacher_ids);
+        await favorite.save();
+
+        res.status(200).json({ message: "Favorite teachers removed successfully", favorite });
+      } else {
+        res.status(400).json({ message: "No favorite teachers found" });
+      }
+    } else {
+      res.status(400).json({ message: "Favorite record not found" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+const getTeachersBySubcategory = asyncHandler(async (req, res) => {
+  const { subcategory_id } = req.body;
+
+  if (!subcategory_id) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    // Find courses with the given subcategory_id
+    const courses = await Course.find({ sub_category_id: subcategory_id }).populate("teacher_id");
+
+    if (!courses.length) {
+      return res.status(404).json({ message: "No courses found for the given subcategory ID" });
+    }
+
+    // Extract unique teacher IDs
+    const teacherIds = [...new Set(courses.map((course) => course.teacher_id._id.toString()))];
+
+    // Find teacher details for these IDs and populate payment_id
+    const teachers = await User.find({ _id: { $in: teacherIds } }).populate("payment_id");
+
+    res.status(200).json({ teachers });
+  } catch (error) {
+    console.error("Error fetching teachers:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 module.exports = {
   getUsers,
   registerUser,
@@ -2351,4 +2469,7 @@ module.exports = {
   updateAdvancePayment,
   updateUserPayment,
   getTeacherById,
+  addFavoriteTeacher,
+  removeFavoriteTeacher,
+  getTeachersBySubcategory,
 };

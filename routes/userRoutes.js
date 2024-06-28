@@ -46,6 +46,9 @@ const {
   updateAdvancePayment,
   updateUserPayment,
   getTeacherById,
+  addFavoriteTeacher,
+  removeFavoriteTeacher,
+  getTeachersBySubcategory,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -128,5 +131,10 @@ userRoutes.route("/getMasterAndAdvancePayments").get(protect, getMasterAndAdvanc
 
 userRoutes.route("/updateUserPayment").put(protect, updateUserPayment);
 userRoutes.route("/getTeacherById").post(protect, getTeacherById);
+
+/*------------- Favorite Teacher --------------------- */
+userRoutes.route("/addFavoriteTeacher").post(protect, addFavoriteTeacher);
+userRoutes.route("/removeFavoriteTeacher").post(protect, removeFavoriteTeacher);
+userRoutes.route("/getTeachersBySubcategory").post(protect, getTeachersBySubcategory);
 
 module.exports = { userRoutes };
