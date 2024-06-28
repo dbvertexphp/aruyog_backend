@@ -45,16 +45,19 @@ const {
   updateMasterPayment,
   updateAdvancePayment,
   updateUserPayment,
-  getTeacherById,
+  getTeacherAndCourseByTeacher_IdAndType,
   addFavoriteTeacher,
   removeFavoriteTeacher,
   getTeachersBySubcategory,
+  getFavoriteTeachers,
+  getCoursesByUserId,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
 const protect = require("../middleware/authMiddleware.js");
 const commonProtect = require("../middleware/comman_authMiddleware.js");
 const Authorization = require("../middleware/Authorization.middleware.js");
+const { addRating, getRatingsByTeacherId } = require("../controllers/ratingController.js");
 
 const userRoutes = express.Router();
 
@@ -85,10 +88,8 @@ userRoutes.route("/updateUserProfile").put(protect, updateProfileData);
 userRoutes.route("/searchUsers").post(protect, searchUsers);
 userRoutes.route("/UpdateMobileAdmin").post(protect, UpdateMobileAdmin);
 userRoutes.route("/profilePicUpload").put(protect, profilePicUpload);
-userRoutes.route("/bankdetailsUpload").post(protect, bank_Detail_create);
 userRoutes.route("/UserAdminStatus").post(protect, UserAdminStatus);
-userRoutes.route("/getBankDetails").get(protect, getBankDetails);
-userRoutes.route("/getBankDetailsAdmin").post(protect, getBankDetailsAdmin);
+
 userRoutes.route("/addReview").post(protect, addReview);
 // userRoutes.route("/updateUserWatchTime").post(protect, updateUserWatchTime);
 userRoutes.route("/getReview/:id/:limit").get(getReview);
@@ -130,11 +131,24 @@ userRoutes.route("/updateAdvancePayment").post(protect, updateAdvancePayment);
 userRoutes.route("/getMasterAndAdvancePayments").get(protect, getMasterAndAdvancePayments);
 
 userRoutes.route("/updateUserPayment").put(protect, updateUserPayment);
-userRoutes.route("/getTeacherById").post(protect, getTeacherById);
+userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, getTeacherAndCourseByTeacher_IdAndType);
 
 /*------------- Favorite Teacher --------------------- */
 userRoutes.route("/addFavoriteTeacher").post(protect, addFavoriteTeacher);
 userRoutes.route("/removeFavoriteTeacher").post(protect, removeFavoriteTeacher);
 userRoutes.route("/getTeachersBySubcategory").post(protect, getTeachersBySubcategory);
+userRoutes.route("/getFavoriteTeachers").get(protect, getFavoriteTeachers);
+
+/*------------- Rating Teacher --------------------- */
+userRoutes.route("/addRating").post(protect, addRating);
+userRoutes.route("/getRatingsByTeacherId/:teacherId").get(protect, getRatingsByTeacherId);
+
+/*------------- Courses APIs --------------------- */
+userRoutes.route("/getCoursesByUserId").get(protect, getCoursesByUserId);
+
+/*------------- Bank Details APIs --------------------- */
+userRoutes.route("/addBankDetails").post(protect, bank_Detail_create);
+userRoutes.route("/getBankDetails").get(protect, getBankDetails);
+userRoutes.route("/getBankDetailsAdmin").post(protect, getBankDetailsAdmin);
 
 module.exports = { userRoutes };

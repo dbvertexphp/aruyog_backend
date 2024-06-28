@@ -17,7 +17,7 @@ const { AdminNotificationMessages } = require("../models/adminnotificationsmodel
 const multer = require("multer");
 const MyFriends = require("../models/myfrindsModel.js");
 const { Hire, HireStatus } = require("../models/hireModel.js");
-require("dotenv").config();
+const dotenv = require("dotenv");
 const baseURL = process.env.BASE_URL;
 const { createNotification } = require("./notificationControllers.js");
 const { PutObjectProfilePic, getSignedUrlS3, DeleteSignedUrlS3 } = require("../config/aws-s3.js");
@@ -26,7 +26,8 @@ const { createConnectyCubeUser } = require("../utils/connectyCubeUtils.js");
 const ErrorHandler = require("../utils/errorHandler.js");
 const http = require("https");
 const Course = require("../models/course.js");
-
+const ConnectyCube = require("connectycube");
+dotenv.config();
 const updateTeacherProfileData = asyncHandler(async (req, res) => {
   const { full_name, mobile, email, experience, education, languages, expertise, about_me } = req.body;
 
@@ -76,6 +77,93 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
 });
 
 // POST /api/courses/add
+
+const CREDENTIALS = {
+  appId: process.env.CAPPID,
+  authKey: process.env.AUTHKEY,
+  authSecret: process.env.AUTHSECRET,
+};
+
+// const CONFIG = {
+//   debug: { mode: 1 },
+// };
+
+// // Initialize ConnectyCube
+// ConnectyCube.init(CREDENTIALS.appId, CREDENTIALS.authKey, CREDENTIALS.authSecret, CONFIG);
+
+// const updateConnectyCubeUser = async (connectyCubeId, userProfile, sessionToken) => {
+//   try {
+//     const updatedUser = await ConnectyCube.users.update(connectyCubeId, userProfile, [{ token: sessionToken }]);
+//     console.log("ConnectyCube user updated successfully:", updatedUser);
+//     return updatedUser;
+//   } catch (error) {
+//     console.error("Error updating user profile in ConnectyCube:", error);
+//     throw new ErrorHandler("Failed to update user profile in ConnectyCube", 500);
+//   }
+// };
+
+// const updateTeacherProfileData = asyncHandler(async (req, res) => {
+//   const { full_name, mobile, email, experience, education, languages, expertise, about_me } = req.body;
+//   const userId = req.headers.userID; // Assuming user authentication middleware sets this header
+
+//   try {
+//     // Update the user's profile fields in the local database
+//     const updatedUser = await User.findByIdAndUpdate(
+//       userId,
+//       {
+//         $set: {
+//           full_name,
+//           mobile,
+//           email,
+//           experience,
+//           education,
+//           languages,
+//           expertise,
+//           about_me,
+//           datetime: moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
+//         },
+//       },
+//       { new: true }
+//     );
+
+//     if (!updatedUser) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+
+//     // Prepare user profile update for ConnectyCube
+//     const userProfileUpdate = {
+//       login: mobile,
+//       full_name,
+//       email,
+//       phone: mobile,
+//       // Add other fields as needed
+//     };
+
+//     // Get session token from wherever it's stored (e.g., database, session)
+//     const sessionToken = updatedUser.ConnectyCube_token;
+
+//     // Update user profile in ConnectyCube
+//     const updatedConnectyCubeUser = await updateConnectyCubeUser(updatedUser.ConnectyCube_id, userProfileUpdate, sessionToken);
+
+//     return res.status(200).json({
+//       _id: updatedUser._id,
+//       full_name: updatedUser.full_name,
+//       mobile: updatedUser.mobile,
+//       email: updatedUser.email,
+//       experience: updatedUser.experience,
+//       education: updatedUser.education,
+//       languages: updatedUser.languages,
+//       expertise: updatedUser.expertise,
+//       about_me: updatedUser.about_me,
+//       pic: updatedUser.profile_pic,
+//       status: true,
+//     });
+//   } catch (error) {
+//     console.error("Error updating user profile:", error.message);
+//     return res.status(error.statusCode || 500).json({ error: error.message });
+//   }
+// });
+
 const addCourse = asyncHandler(async (req, res) => {
   const { title, category_id, sub_category_id, type, startTime, endTime } = req.body;
   const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header

@@ -1,54 +1,43 @@
+// models/Transaction.js
 const mongoose = require("mongoose");
+const format = require("date-fns");
 const moment = require("moment-timezone");
-const transactionSchema = new mongoose.Schema({
-      payment_id: {
-            type: String,
-            required: true,
-      },
-      order_id: {
-            type: String,
-            required: true,
-      },
-      amount: {
-            type: Number,
-            required: true,
-      },
-      payment_method: {
-            type: String,
-            required: true,
-      },
-      payment_status: {
-            type: String,
-            required: true,
-      },
-      payment_check_status: {
-            type: String,
-            required: true,
-      },
-      payment_send: {
-            type: String,
-      },
-      user_id: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User", // Assuming you have a User model, adjust the ref accordingly
-            required: true,
-      },
-      hire_id: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User", // Assuming you have a User model, adjust the ref accordingly
-            required: true,
-      },
-      calendar_id: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Calendar", // Assuming you have a User model, adjust the ref accordingly
-            required: true,
-      },
+const moments = require("moment");
+const Schema = mongoose.Schema;
 
-      datetime: {
-            type: String,
-      },
-});
+const transactionSchema = new Schema(
+  {
+    user_id: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    teacher_id: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    course_id: {
+      type: Schema.Types.ObjectId,
+      ref: "Course",
+      required: true,
+    },
+    transaction_id: {
+      type: String,
+      required: true,
+    },
+    payment_id: {
+      type: Schema.Types.ObjectId,
+      ref: "TeacherPayment",
+      required: true,
+    },
+    datetime: {
+      type: String,
+      default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
+    },
+  },
+  { timestamps: true }
+);
 
 const Transaction = mongoose.model("Transaction", transactionSchema);
-
 module.exports = Transaction;

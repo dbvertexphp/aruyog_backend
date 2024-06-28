@@ -30,6 +30,7 @@ const upload = require("../middleware/uploadMiddleware.js");
 const Course = require("../models/course.js");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Favorite = require("../models/favorite.js");
+const Rating = require("../models/ratingModel.js");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -725,17 +726,17 @@ const ChangePassword = asyncHandler(async (req, res) => {
 });
 
 const bank_Detail_create = asyncHandler(async (req, res) => {
-  const { name, bankName, accountNumber, ifscCode, branchName } = req.body;
-  const userId = req.user._id; // Assuming you have user authentication middleware
+  const { bankName, accountNumber, ifscCode, bankAddress, teacherName } = req.body;
+  const userId = req.headers.userID; // Assuming you have user authentication middleware
 
   try {
     // Create bank details
     const bankDetails = await BankDetails.create({
-      name,
       bankName,
       accountNumber,
       ifscCode,
-      branchName,
+      bankAddress,
+      teacherName,
       userId,
     });
     res.status(201).json({
@@ -751,7 +752,7 @@ const bank_Detail_create = asyncHandler(async (req, res) => {
 });
 
 const getBankDetails = asyncHandler(async (req, res) => {
-  const userId = req.user._id; // Assuming you have user authentication middleware
+  const userId = req.headers.userID; // Assuming you have user authentication middleware
 
   try {
     // Find bank details for the given user ID
@@ -2283,24 +2284,35 @@ const updateUserPayment = async (req, res, next) => {
   });
 };
 
-const getTeacherById = async (req, res, next) => {
+const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
   const { teacher_id, type } = req.body;
 
   try {
+    // Find the teacher by ID and populate payment information
     const teacher = await User.findById(teacher_id).populate({
-      path: "payment_id", // Populate the payment_id field
+      path: "payment_id",
     });
-    const course = await Course.find({ teacher_id: teacher_id, type: type });
+
+    // Find courses for the teacher with the specified type
+    const courses = await Course.find({ teacher_id: teacher_id, type: type });
 
     if (!teacher) {
       return res.status(404).json({ message: "Teacher not found" });
     }
-    res.status(201).json({
-      teacher: teacher,
-      course: course,
+
+    // Calculate average rating for the teacher
+    const ratings = await Rating.find({ teacher_id: teacher_id });
+    const averageRating = ratings.length ? ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length : 0;
+
+    res.status(200).json({
+      teacher: {
+        ...teacher.toObject(),
+        averageRating,
+      },
+      courses: courses,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching teacher and courses:", error.message);
     res.status(500).json({ message: "Internal Server Error", status: false });
   }
 };
@@ -2395,10 +2407,92 @@ const removeFavoriteTeacher = asyncHandler(async (req, res) => {
   }
 });
 
+const getFavoriteTeachers = asyncHandler(async (req, res) => {
+  const user_id = req.headers.userID;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    const favorite = await Favorite.findOne({ user_id }).populate({
+      path: "teacher_ids",
+      populate: {
+        path: "payment_id",
+        model: "TeacherPayment",
+      },
+    });
+
+    if (!favorite) {
+      return res.status(404).json({ message: "No favorite teachers found for this user." });
+    }
+
+    // Calculate average rating for each favorite teacher
+    const favoriteTeachersWithRating = await Promise.all(
+      favorite.teacher_ids.map(async (teacher) => {
+        const ratings = await Rating.find({ teacher_id: teacher._id });
+        const averageRating = ratings.length ? ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length : 0;
+
+        return {
+          ...teacher.toObject(),
+          averageRating,
+        };
+      })
+    );
+
+    res.status(200).json({ favorite_teachers: favoriteTeachersWithRating });
+  } catch (error) {
+    console.error("Error fetching favorite teachers:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// const getTeachersBySubcategory = asyncHandler(async (req, res) => {
+//   const { subcategory_id } = req.body;
+//   const user_id = req.headers.userID;
+
+//   if (!subcategory_id || !user_id) {
+//     return res.status(400).json({ message: "Invalid input" });
+//   }
+
+//   try {
+//     // Find courses with the given subcategory_id
+//     const courses = await Course.find({ sub_category_id: subcategory_id }).populate("teacher_id");
+
+//     if (!courses.length) {
+//       return res.status(404).json({ message: "No courses found for the given subcategory ID" });
+//     }
+
+//     // Extract unique teacher IDs
+//     const teacherIds = [...new Set(courses.map((course) => course.teacher_id._id.toString()))];
+
+//     // Find teacher details for these IDs and populate payment_id
+//     const teachers = await User.find({ _id: { $in: teacherIds } }).populate("payment_id");
+
+//     // Fetch the user's favorite teachers
+//     const favorite = await Favorite.findOne({ user_id });
+
+//     const favoriteTeacherIds = favorite ? favorite.teacher_ids.map((id) => id.toString()) : [];
+
+//     // Add favorite status to each teacher
+//     const teachersWithFavoriteStatus = teachers.map((teacher) => ({
+//       ...teacher.toObject(),
+//       favorite: favoriteTeacherIds.includes(teacher._id.toString()),
+//     }));
+
+//     res.status(200).json({ teachers: teachersWithFavoriteStatus });
+//   } catch (error) {
+//     console.error("Error fetching teachers:", error.message);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
 const getTeachersBySubcategory = asyncHandler(async (req, res) => {
   const { subcategory_id } = req.body;
+  const user_id = req.headers.userID;
+  const { search } = req.query; // Assuming search query parameter for teacher name search
 
-  if (!subcategory_id) {
+  if (!subcategory_id || !user_id) {
     return res.status(400).json({ message: "Invalid input" });
   }
 
@@ -2414,14 +2508,68 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
     const teacherIds = [...new Set(courses.map((course) => course.teacher_id._id.toString()))];
 
     // Find teacher details for these IDs and populate payment_id
-    const teachers = await User.find({ _id: { $in: teacherIds } }).populate("payment_id");
+    let teachers = await User.find({ _id: { $in: teacherIds } }).populate("payment_id");
 
-    res.status(200).json({ teachers });
+    // Filter teachers by search query (teacher name)
+    if (search) {
+      const searchRegex = new RegExp(search, "i"); // Case-insensitive search regex
+      teachers = teachers.filter((teacher) => searchRegex.test(teacher.full_name));
+    }
+
+    // Fetch the user's favorite teachers
+    const favorite = await Favorite.findOne({ user_id });
+
+    const favoriteTeacherIds = favorite ? favorite.teacher_ids.map((id) => id.toString()) : [];
+
+    // Add favorite status and average rating to each teacher
+    const teachersWithDetails = await Promise.all(
+      teachers.map(async (teacher) => {
+        const ratings = await Rating.find({ teacher_id: teacher._id });
+        const averageRating = ratings.length ? ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length : 0;
+
+        return {
+          ...teacher.toObject(),
+          favorite: favoriteTeacherIds.includes(teacher._id.toString()),
+          averageRating,
+        };
+      })
+    );
+
+    res.status(200).json({ teachers: teachersWithDetails });
   } catch (error) {
     console.error("Error fetching teachers:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+const getCoursesByUserId = asyncHandler(async (req, res) => {
+  const user_id = req.headers.userID;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    const transactions = await Transaction.find({ user_id })
+      .populate({
+        path: "course_id",
+        model: "Course",
+      })
+      .exec();
+
+    if (!transactions.length) {
+      return res.status(404).json({ message: "No courses found for the given user ID" });
+    }
+
+    const courses = transactions.map((transaction) => transaction.course_id);
+
+    res.status(200).json({ courses });
+  } catch (error) {
+    console.error("Error fetching courses:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 module.exports = {
   getUsers,
   registerUser,
@@ -2468,8 +2616,10 @@ module.exports = {
   updateMasterPayment,
   updateAdvancePayment,
   updateUserPayment,
-  getTeacherById,
+  getTeacherAndCourseByTeacher_IdAndType,
   addFavoriteTeacher,
   removeFavoriteTeacher,
+  getFavoriteTeachers,
   getTeachersBySubcategory,
+  getCoursesByUserId,
 };
