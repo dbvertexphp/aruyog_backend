@@ -22,6 +22,8 @@ const transactionSchema = new Schema(
       ref: "Course",
       required: true,
     },
+    category_id: { type: mongoose.Schema.Types.ObjectId, ref: "Category" },
+    sub_category_id: { type: mongoose.Schema.Types.ObjectId, ref: "Category.subcategories" },
     transaction_id: {
       type: String,
       required: true,
@@ -29,7 +31,9 @@ const transactionSchema = new Schema(
     payment_id: {
       type: Schema.Types.ObjectId,
       ref: "TeacherPayment",
-      required: true,
+    },
+    amount: {
+      type: Number,
     },
     datetime: {
       type: String,

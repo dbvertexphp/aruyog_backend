@@ -2,7 +2,8 @@ const asyncHandler = require("express-async-handler");
 const cookie = require("cookie");
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
-const moment = require("moment-timezone");
+const moment = require("moment");
+
 const { generateToken, blacklistToken } = require("../config/generateToken.js");
 const { User, NotificationMessages, AdminDashboard, WebNotification } = require("../models/userModel.js");
 const { Reel, ReelLike, ReelComment } = require("../models/reelsModel.js");
@@ -31,6 +32,8 @@ const Course = require("../models/course.js");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Favorite = require("../models/favorite.js");
 const Rating = require("../models/ratingModel.js");
+const fs = require("fs");
+const { startOfMonth, endOfMonth, addMonths, format, parse } = require("date-fns");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -2293,12 +2296,26 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
       path: "payment_id",
     });
 
-    // Find courses for the teacher with the specified type
-    const courses = await Course.find({ teacher_id: teacher_id, type: type });
-
     if (!teacher) {
       return res.status(404).json({ message: "Teacher not found" });
     }
+
+    // Find courses for the teacher with the specified type
+    const courses = await Course.find({ teacher_id: teacher_id, type: type });
+
+    // Check course availability
+    const coursesWithAvailability = courses.map((course) => {
+      let courseAvailable;
+      if (course.type === "group_course") {
+        courseAvailable = course.userIds.length < 3 ? "available" : "full";
+      } else if (course.type === "single_course") {
+        courseAvailable = course.userIds.length < 1 ? "available" : "full";
+      }
+      return {
+        ...course.toObject(),
+        courseAvailable,
+      };
+    });
 
     // Calculate average rating for the teacher
     const ratings = await Rating.find({ teacher_id: teacher_id });
@@ -2309,7 +2326,7 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
         ...teacher.toObject(),
         averageRating,
       },
-      courses: courses,
+      courses: coursesWithAvailability,
     });
   } catch (error) {
     console.error("Error fetching teacher and courses:", error.message);
@@ -2544,21 +2561,29 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
 
 const getCoursesByUserId = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
+  const sub_category_id = req.query.sub_category_id;
 
   if (!user_id) {
     return res.status(400).json({ message: "Invalid input" });
   }
 
+  let query = { user_id };
+
+  if (sub_category_id) {
+    query["sub_category_id"] = sub_category_id;
+  }
+
   try {
-    const transactions = await Transaction.find({ user_id })
+    const transactions = await Transaction.find(query)
       .populate({
         path: "course_id",
         model: "Course",
+        populate: [{ path: "teacher_id", model: "User", select: "full_name" }],
       })
       .exec();
 
     if (!transactions.length) {
-      return res.status(404).json({ message: "No courses found for the given user ID" });
+      return res.status(404).json({ message: "No courses found for the given user ID and sub-category ID" });
     }
 
     const courses = transactions.map((transaction) => transaction.course_id);
@@ -2569,6 +2594,192 @@ const getCoursesByUserId = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+const updateStudentProfileData = asyncHandler(async (req, res) => {
+  req.uploadPath = "uploads/profiles";
+  upload.single("profile_pic")(req, res, async (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+
+    const { first_name, last_name } = req.body;
+    const userId = req.headers.userID; // Assuming you have user authentication middleware
+
+    // Get the profile picture path if uploaded
+    const profile_pic = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+
+    try {
+      // Find the current user to get the old profile picture path
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Build the update object
+      let updateFields = {
+        datetime: moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
+      };
+
+      // Update first_name and last_name if provided
+      if (first_name) {
+        updateFields.first_name = first_name;
+      }
+
+      if (last_name) {
+        updateFields.last_name = last_name;
+      }
+
+      // Check if there is a new profile pic uploaded and delete the old one
+      if (profile_pic && currentUser.profile_pic) {
+        const oldProfilePicPath = currentUser.profile_pic;
+        updateFields.profile_pic = profile_pic;
+
+        // Delete the old profile picture
+        deleteFile(oldProfilePicPath);
+      } else if (profile_pic) {
+        updateFields.profile_pic = profile_pic;
+      }
+
+      // Update the user's profile fields
+      const updatedUser = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      return res.status(200).json({
+        _id: updatedUser._id,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        profile_pic: updatedUser.profile_pic,
+        status: true,
+      });
+    } catch (error) {
+      console.error("Error updating user profile:", error.message);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+  });
+});
+
+// Function to delete a file from the filesystem
+function deleteFile(filePath) {
+  fs.unlink(filePath, (err) => {
+    if (err) {
+      console.error("Error deleting file:", err);
+    } else {
+      console.log(`Deleted file: ${filePath}`);
+    }
+  });
+}
+
+const getStudentsPayment = asyncHandler(async (req, res) => {
+  const teacherId = req.headers.userID; // Assuming you have user authentication middleware
+
+  try {
+    // Find all transactions for the given teacher
+    const transactions = await Transaction.find({ teacher_id: teacherId });
+
+    // Extract student IDs from the transactions
+    const studentIds = transactions.map((txn) => txn.user_id);
+
+    // Find student information for each transaction
+    const students = await User.find({ _id: { $in: studentIds } }, "profile_pic full_name");
+
+    // Find the teacher to get the payment_id
+    const teacher = await User.findById(teacherId, "payment_id");
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    // Prepare the response data
+    const responseData = transactions.map((txn) => {
+      const student = students.find((stu) => stu._id.equals(txn.user_id));
+
+      return {
+        student_id: txn.user_id,
+        profile_pic: student.profile_pic,
+        full_name: student.full_name,
+        transaction_datetime: txn.datetime,
+        amount: txn.amount,
+      };
+    });
+
+    res.status(200).json({
+      message: "Students fetched successfully",
+      students: responseData,
+    });
+  } catch (error) {
+    console.error("Error fetching students for teacher:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+const getTotalAmount = asyncHandler(async (req, res) => {
+  const teacherId = req.headers.userID; // Assuming you have user authentication middleware
+
+  try {
+    // Find the teacher to get the full_name and profile_pic
+    const teacher = await User.findById(teacherId, "full_name profile_pic");
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    // Find all transactions for the given teacher
+    const transactions = await Transaction.find({ teacher_id: teacherId });
+
+    // Calculate the total amount
+    const totalAmount = transactions.reduce((sum, txn) => sum + txn.amount, 0);
+
+    // Group transactions by month
+    const groupedTransactions = groupTransactionsByMonth(transactions);
+
+    // Calculate total and current month amounts
+    const currentDate = new Date();
+    const currentMonthKey = moment(currentDate).format("YYYY-MM");
+    const currentMonthAmount = groupedTransactions[currentMonthKey] ? groupedTransactions[currentMonthKey].reduce((sum, txn) => sum + txn.amount, 0) : 0;
+
+    const monthlyAmounts = Object.keys(groupedTransactions).map((monthKey) => {
+      const monthName = moment(monthKey, "YYYY-MM").format("MMM");
+      return {
+        month: `${monthName} ${moment(monthKey, "YYYY-MM").format("YYYY")}`,
+        amount: groupedTransactions[monthKey].reduce((sum, txn) => sum + txn.amount, 0),
+      };
+    });
+
+    res.status(200).json({
+      message: "Total amounts fetched successfully",
+      totalAmount,
+      currentMonthAmount,
+      monthlyAmounts,
+      teacher: {
+        full_name: teacher.full_name,
+        profile_pic: teacher.profile_pic,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching total amounts for teacher:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+function groupTransactionsByMonth(transactions) {
+  const groupedTransactions = {};
+
+  transactions.forEach((txn) => {
+    // Parse datetime using moment to convert it into a Date object
+    const txnDate = moment(txn.datetime, "DD-MM-YYYY").toDate();
+
+    // Format the date to YYYY-MM to use it as the key for grouping
+    const monthKey = moment(txnDate).format("YYYY-MM");
+
+    if (!groupedTransactions[monthKey]) {
+      groupedTransactions[monthKey] = [];
+    }
+    groupedTransactions[monthKey].push(txn);
+  });
+
+  return groupedTransactions;
+}
 
 module.exports = {
   getUsers,
@@ -2622,4 +2833,7 @@ module.exports = {
   getFavoriteTeachers,
   getTeachersBySubcategory,
   getCoursesByUserId,
+  updateStudentProfileData,
+  getStudentsPayment,
+  getTotalAmount,
 };

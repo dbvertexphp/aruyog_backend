@@ -34,6 +34,10 @@ const userSchema = mongoose.Schema({
     required: true,
     default: "defult_profile/defult_pic.jpg",
   },
+  background_image: {
+    type: String,
+    required: false,
+  },
   ConnectyCube_token: { type: String, default: null },
   ConnectyCube_id: { type: String, default: null },
   // deleted: { type: Boolean, default: false },

@@ -51,6 +51,9 @@ const {
   getTeachersBySubcategory,
   getFavoriteTeachers,
   getCoursesByUserId,
+  updateStudentProfileData,
+  getStudentsPayment,
+  getTotalAmount,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -89,6 +92,7 @@ userRoutes.route("/searchUsers").post(protect, searchUsers);
 userRoutes.route("/UpdateMobileAdmin").post(protect, UpdateMobileAdmin);
 userRoutes.route("/profilePicUpload").put(protect, profilePicUpload);
 userRoutes.route("/UserAdminStatus").post(protect, UserAdminStatus);
+userRoutes.route("/updateStudentProfileData").post(protect, updateStudentProfileData);
 
 userRoutes.route("/addReview").post(protect, addReview);
 // userRoutes.route("/updateUserWatchTime").post(protect, updateUserWatchTime);
@@ -125,6 +129,8 @@ userRoutes.route("/getCoursesByTeacherId/:teacher_id").get(protect, getCoursesBy
 /*------------- Update Payment --------------------- */
 userRoutes.route("/addMasterPayment").post(protect, addMasterPayment);
 userRoutes.route("/updateMasterPayment").post(protect, updateMasterPayment);
+userRoutes.route("/getStudentsPayment").get(protect, getStudentsPayment);
+userRoutes.route("/getTotalAmount").get(protect, getTotalAmount);
 
 userRoutes.route("/addAdvancePayment").post(protect, addAdvancePayment);
 userRoutes.route("/updateAdvancePayment").post(protect, updateAdvancePayment);
