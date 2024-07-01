@@ -41,6 +41,13 @@ const courseSchema = new Schema(
         message: "Course cannot have more than 3 users",
       },
     },
+    days: [
+      {
+        type: String,
+        required: true,
+      },
+    ],
+
     startDate: { type: String, required: true },
     endDate: { type: String, required: true },
     teacher_id: { type: Schema.Types.ObjectId, ref: "User", required: true },

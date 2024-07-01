@@ -227,12 +227,16 @@ const addCourse = asyncHandler(async (req, res) => {
   try {
     // Validate required fields
     if (!title || !category_id || !sub_category_id || !type) {
-      return res.status(400).json({ error: "All fields (title, category_id, sub_category_id, type) are required." });
+      return res.status(400).json({
+        error: "All fields (title, category_id, sub_category_id, type) are required.",
+      });
     }
 
     // Validate startDate and endDate are valid dates
     if (!startDate || !endDate || isNaN(Date.parse(startDate)) || isNaN(Date.parse(endDate))) {
-      return res.status(400).json({ error: "Invalid startDate or endDate format." });
+      return res.status(400).json({
+        error: "Invalid startDate or endDate format.",
+      });
     }
 
     // Create new course with provided dates
@@ -269,4 +273,82 @@ const addCourse = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { updateTeacherProfileData, addCourse };
+const getTodayCourse = asyncHandler(async (req, res) => {
+  const userId = req.headers.userID;
+  const currentDateTime = moment().tz("Asia/Kolkata");
+  const currentMonth = currentDateTime.format("MM");
+  const currentYear = currentDateTime.format("YYYY");
+  const currentTime = currentDateTime.format("hh:mm A");
+
+  try {
+    const courses = await Course.find({
+      teacher_id: userId,
+      startDate: {
+        $gte: `01-${currentMonth}-${currentYear}`,
+        $lte: `31-${currentMonth}-${currentYear}`,
+      },
+    });
+
+    if (!courses || courses.length === 0) {
+      return res.status(200).json({
+        message: "Course Not Found",
+        status: false,
+      });
+    }
+
+    const filteredCourses = courses.filter((course) => {
+      const courseStartTime = moment(course.startTime, "hh:mm A").format("hh:mm A");
+      const currentTimeOnly = moment(currentTime, "hh:mm A").format("hh:mm A");
+      return moment(courseStartTime, "hh:mm A").isAfter(moment(currentTimeOnly, "hh:mm A"));
+    });
+
+    res.json({
+      course: filteredCourses,
+      status: true,
+    });
+  } catch (error) {
+    console.error("GetTodayCourse API error:", error.message);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+    });
+  }
+});
+
+const getMyClasses = asyncHandler(async (req, res) => {
+  const userId = req.headers.userID;
+  const currentDateTime = moment().tz("Asia/Kolkata");
+  const currentMonth = currentDateTime.format("MM");
+  const currentYear = currentDateTime.format("YYYY");
+  const currentTime = currentDateTime.format("hh:mm A");
+
+  try {
+    const courses = await Course.find({
+      teacher_id: userId,
+      startDate: {
+        $gte: `01-${currentMonth}-${currentYear}`,
+        $lte: `31-${currentMonth}-${currentYear}`,
+      },
+    });
+
+    if (!courses || courses.length === 0) {
+      return res.status(200).json({
+        message: "Course Not Found",
+        status: false,
+      });
+    }
+
+    res.json({
+      course: courses,
+      status: true,
+    });
+  } catch (error) {
+    console.error("GetTodayCourse API error:", error.message);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+    });
+  }
+});
+
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses };
