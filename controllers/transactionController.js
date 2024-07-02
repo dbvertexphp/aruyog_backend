@@ -3,6 +3,62 @@ const asyncHandler = require("express-async-handler");
 const Transaction = require("../models/transactionModel");
 const Course = require("../models/course");
 const baseURL = process.env.BASE_URL;
+// const Notification = require("../models/Notification");
+const TeacherNotification = require("../models/teacherNotificationModel");
+const { User, NotificationMessages, AdminDashboard, WebNotification } = require("../models/userModel.js");
+const { addNotification } = require("./teacherNotificationController");
+
+// const addTransaction = asyncHandler(async (req, res) => {
+//   const user_id = req.headers.userID;
+//   const { teacher_id, course_id, transaction_id, amount, payment_id, payment_status } = req.body;
+
+//   if (!user_id || !teacher_id || !course_id || !transaction_id || !amount || !payment_id || !payment_status) {
+//     return res.status(400).json({ message: "Invalid input" });
+//   }
+
+//   try {
+//     const course = await Course.findById(course_id);
+
+//     if (!course) {
+//       return res.status(404).json({ message: "Course not found" });
+//     }
+
+//     // Check the type of course to determine maximum userIds allowed
+//     const maxUserIdsAllowed = course.type === "group_course" ? 3 : 1;
+
+//     if (course.userIds.length >= maxUserIdsAllowed) {
+//       return res.status(400).json({
+//         message: `Maximum capacity (${maxUserIdsAllowed}) reached for this course`,
+//       });
+//     }
+
+//     const newTransaction = new Transaction({
+//       user_id,
+//       teacher_id,
+//       course_id,
+//       transaction_id,
+//       amount,
+//       payment_id,
+//       payment_status,
+//     });
+
+//     const savedTransaction = await newTransaction.save();
+
+//     // Update Course with userId if not already included
+//     if (!course.userIds.includes(user_id)) {
+//       course.userIds.push(user_id);
+//       await course.save();
+//     }
+
+//     res.status(201).json({
+//       message: "Transaction added successfully",
+//       transaction: savedTransaction,
+//     });
+//   } catch (error) {
+//     console.error("Error adding transaction:", error.message);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// });
 
 const addTransaction = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
@@ -46,6 +102,24 @@ const addTransaction = asyncHandler(async (req, res) => {
       await course.save();
     }
 
+    // Send notification to teacher
+    const teacher = await User.findById(teacher_id);
+
+    if (teacher && teacher.firebase_token) {
+      const message = {
+        notification: {
+          title: "New Transaction",
+          body: `You have received a new transaction for course ${course.title}`,
+        },
+        token: teacher.firebase_token,
+      };
+
+      await admin.messaging().send(message);
+    }
+
+    // Add notification to the teacher's notification collection
+    await addNotification(teacher_id, "New Transaction", `You have received a new transaction for course ${course.title}`);
+
     res.status(201).json({
       message: "Transaction added successfully",
       transaction: savedTransaction,
@@ -55,7 +129,6 @@ const addTransaction = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 const getAllTransactions = asyncHandler(async (req, res) => {
   const { page = 1, search = "", Short = "" } = req.body;
   const perPage = 10; // You can adjust this according to your requirements

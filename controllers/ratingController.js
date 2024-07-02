@@ -3,6 +3,7 @@
 const asyncHandler = require("express-async-handler");
 const Rating = require("../models/ratingModel.js");
 const mongoose = require("mongoose");
+const { User } = require("../models/userModel.js");
 
 // Controller function to add a rating
 const addRating = asyncHandler(async (req, res) => {
@@ -20,7 +21,24 @@ const addRating = asyncHandler(async (req, res) => {
     // If no existing rating found, create a new rating
     const newRating = await Rating.create({ teacher_id, user_id, rating, message });
 
-    res.status(201).json({ rating: newRating });
+    // Find the teacher to update their average rating
+    const teacher = await User.findById(teacher_id);
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    // Calculate the new average rating
+    const totalRating = teacher.averageRating * teacher.ratingCount + rating;
+    const newRatingCount = teacher.ratingCount + 1;
+    const newAverageRating = totalRating / newRatingCount;
+
+    // Update the teacher's average rating and rating count
+    teacher.averageRating = newAverageRating;
+    teacher.ratingCount = newRatingCount;
+    await teacher.save();
+
+    res.status(201).json({ rating: newRating, averageRating: newAverageRating });
   } catch (error) {
     console.error("Error adding rating:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
