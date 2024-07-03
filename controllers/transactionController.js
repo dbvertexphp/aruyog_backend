@@ -164,11 +164,11 @@ const getAllTransactions = asyncHandler(async (req, res) => {
     const transactions = await Transaction.find()
       .populate({
         path: "user_id",
-        select: "first_name last_name email", // Specify fields you want to populate
+        select: "full_name email", // Specify fields you want to populate
       })
       .populate({
         path: "teacher_id",
-        select: "name email first_name last_name",
+        select: "name email full_name",
       })
       .populate({
         path: "course_id",

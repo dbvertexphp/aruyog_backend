@@ -54,6 +54,7 @@ const {
   updateStudentProfileData,
   getStudentsPayment,
   getTotalAmount,
+  getAllTeachersInAdmin,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -61,6 +62,7 @@ const protect = require("../middleware/authMiddleware.js");
 const commonProtect = require("../middleware/comman_authMiddleware.js");
 const Authorization = require("../middleware/Authorization.middleware.js");
 const { addRating, getRatingsByTeacherId } = require("../controllers/ratingController.js");
+const { addTeacherPaymentStatus } = require("../controllers/teacherPaymentStatusController.js");
 
 const userRoutes = express.Router();
 
@@ -157,4 +159,8 @@ userRoutes.route("/addBankDetails").post(protect, bank_Detail_create);
 userRoutes.route("/getBankDetails").get(protect, getBankDetails);
 userRoutes.route("/getBankDetailsAdmin").post(protect, getBankDetailsAdmin);
 
+userRoutes.route("/getAllTeachersInAdmin").get(protect, getAllTeachersInAdmin);
+
+/*------------- addTeacherPaymentStatus --------------------- */
+userRoutes.route("/addTeacherPaymentStatus").post(protect, addTeacherPaymentStatus);
 module.exports = { userRoutes };

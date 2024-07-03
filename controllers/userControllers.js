@@ -1242,6 +1242,72 @@ const getAllTeachers = asyncHandler(async (req, res) => {
   }
 });
 
+const getAllTeachersInAdmin = asyncHandler(async (req, res) => {
+  try {
+    const query = { role: "teacher" }; // Condition added to fetch only teachers
+
+    const users = await User.find(query).populate({
+      path: "payment_id",
+    });
+
+    // Map each user to an array of promises
+    const transformedUsersPromises = users.map(async (user) => {
+      let transformedUser = { ...user.toObject() }; // Convert Mongoose document to plain JavaScript object
+      if (transformedUser.pic) {
+        const getSignedUrl_pic = await getSignedUrlS3(transformedUser.pic);
+        transformedUser.pic = getSignedUrl_pic;
+      }
+      if (transformedUser.watch_time) {
+        transformedUser.watch_time = convertSecondsToReadableTimeAdmin(transformedUser.watch_time);
+      }
+
+      // Determine the payment type dynamically based on payment_id
+      if (transformedUser.payment_id) {
+        let paymentType;
+        let paymentAmount;
+
+        if (transformedUser.payment_id.advance !== undefined) {
+          paymentType = "advance";
+          paymentAmount = transformedUser.payment_id.advance;
+        } else if (transformedUser.payment_id.master !== undefined) {
+          paymentType = "master";
+          paymentAmount = transformedUser.payment_id.master;
+        } else {
+          // Handle case where neither advance nor master is defined
+          paymentType = null;
+          paymentAmount = null;
+        }
+
+        transformedUser.payment = {
+          type: paymentType,
+          amount: paymentAmount,
+        };
+        delete transformedUser.payment_id; // Remove payment_id from the user object
+      } else {
+        transformedUser.payment = {
+          type: null,
+          amount: null,
+        };
+      }
+
+      return { user: transformedUser };
+    });
+
+    // Execute all promises concurrently
+    const transformedUsers = await Promise.all(transformedUsersPromises);
+
+    res.json({
+      Users: transformedUsers,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      status: false,
+    });
+  }
+});
+
 const getAllUsersWebsite = asyncHandler(async (req, res) => {
   const { page = 1, search = "" } = req.body;
   const perPage = 10; // You can adjust this according to your requirements
@@ -3054,4 +3120,5 @@ module.exports = {
   updateStudentProfileData,
   getStudentsPayment,
   getTotalAmount,
+  getAllTeachersInAdmin,
 };
