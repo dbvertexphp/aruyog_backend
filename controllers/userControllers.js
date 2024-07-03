@@ -351,6 +351,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
         mobile: user.mobile,
         role: user.role,
         otp_verified: user.otp_verified,
+        otp: user.otp,
         profile_pic: user.profile_pic, // Include profile_pic in response
         ConnectyCube_token: user.ConnectyCube_token,
         ConnectyCube_id: user.ConnectyCube_id,
@@ -380,7 +381,12 @@ const authUser = asyncHandler(async (req, res) => {
   if (userdata.otp_verified === 0) {
     const otp = generateOTP();
     await User.updateOne({ _id: userdata._id }, { $set: { otp } });
-    throw new ErrorHandler("OTP Not verified", 400);
+    // throw new ErrorHandler("OTP Not verified", 400);
+    res.status(400).json({
+      otp,
+      message: "OTP Not verified",
+      status: false,
+    });
   }
 
   // Save firebase_token if provided
@@ -508,6 +514,7 @@ const resendOTP = asyncHandler(async (req, res) => {
 
   res.json({
     message: "New OTP sent successfully.",
+    newOTP,
     status: true,
   });
 });
@@ -541,6 +548,7 @@ const ForgetresendOTP = asyncHandler(async (req, res) => {
 
   res.status(200).json({
     message: "New OTP sent successfully.",
+    otp: newOTP,
     status: true,
   });
 });
@@ -694,6 +702,7 @@ const forgetPassword = asyncHandler(async (req, res) => {
   // Save the updated user with the new password
   res.json({
     message: "Password reset successfully.",
+    updateUser: result,
     status: true,
   });
 });
