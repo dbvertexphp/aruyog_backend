@@ -25,7 +25,7 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
       return res.status(400).json({ error: err.message });
     }
 
-    const { full_name, mobile, email, experience, education, languages, expertise, about_me } = req.body;
+    const { first_name, last_name, mobile, email, experience, education, languages, expertise, about_me } = req.body;
 
     const userId = req.headers.userID; // Assuming you have user authentication middleware
 
@@ -46,8 +46,11 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
       };
 
       // Update optional fields if provided
-      if (full_name) {
-        updateFields.full_name = full_name;
+      if (first_name) {
+        updateFields.first_name = first_name;
+      }
+      if (last_name) {
+        updateFields.last_name = last_name;
       }
       if (mobile) {
         updateFields.mobile = mobile;
@@ -69,6 +72,11 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
       }
       if (about_me) {
         updateFields.about_me = about_me;
+      }
+
+      // Construct full_name if first_name or last_name is provided
+      if (first_name || last_name) {
+        updateFields.full_name = `${first_name || currentUser.first_name} ${last_name || currentUser.last_name}`;
       }
 
       // Check if there is a new profile pic uploaded and delete the old one
@@ -102,6 +110,8 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
 
       return res.status(200).json({
         _id: updatedUser._id,
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
         full_name: updatedUser.full_name,
         mobile: updatedUser.mobile,
         email: updatedUser.email,
@@ -119,6 +129,39 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
       return res.status(500).json({ error: "Internal Server Error" });
     }
   });
+});
+
+const getTeacherProfileData = asyncHandler(async (req, res) => {
+  const userId = req.headers.userID; // Assuming you have user authentication middleware
+
+  try {
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return the user's profile information
+    return res.status(200).json({
+      _id: user._id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      full_name: user.full_name,
+      mobile: user.mobile,
+      email: user.email,
+      experience: user.experience,
+      education: user.education,
+      languages: user.languages,
+      expertise: user.expertise,
+      about_me: user.about_me,
+      background_image: user.background_image,
+      profile_pic: user.profile_pic,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error.message);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
 });
 
 // Function to delete a file from the filesystem
@@ -351,4 +394,4 @@ const getMyClasses = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData };
