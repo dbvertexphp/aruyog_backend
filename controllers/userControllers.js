@@ -2781,11 +2781,19 @@ const getCoursesByUserId = asyncHandler(async (req, res) => {
           // Calculate the average rating
           const averageRating = ratings.length ? ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length : 0;
 
+          // Check if the user has rated this teacher
+          const userRating = await Rating.findOne({
+            teacher_id: teacher._id,
+            user_id,
+          });
+
           return {
             ...course.toObject(),
             teacher: {
               ...teacher.toObject(),
               averageRating,
+              userHasRated: !!userRating,
+              userRating: userRating ? userRating.rating : null,
             },
           };
         }
