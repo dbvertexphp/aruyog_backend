@@ -26,7 +26,21 @@ const cors = require("cors");
 const path = require("path");
 const { subCategoryRoutes } = require("./routes/subCategoryRoutes.js");
 const { teacherRoutes } = require("./routes/teacherRoutes.js");
+const { teacherNotificationsRoutes } = require("./routes/teacherNotificationRoutes.js");
+const admin = require("firebase-admin");
+
 require("dotenv").config();
+
+// --------------------------Firebase Admin SDK------------------------------
+
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  }),
+  databaseURL: "https://push-notification-6228d-default-rtdb.firebaseio.com/", // Update this URL
+});
 
 connectDB();
 const app = express();
@@ -47,6 +61,7 @@ app.use(
 
 app.use("/api/user", userRoutes);
 app.use("/api/teacher", teacherRoutes);
+app.use("/api/teacherNotification", teacherNotificationsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
 app.use("/api/category", categoryRoutes);

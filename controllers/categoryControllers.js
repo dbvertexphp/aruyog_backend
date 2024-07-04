@@ -5,7 +5,7 @@ const baseURL = process.env.BASE_URL;
 const ErrorHandler = require("../utils/errorHandler.js");
 const multer = require("multer");
 const path = require("path");
-const upload = require("../middleware/uploadMiddleware.js");
+// const upload = require("../middleware/uploadMiddleware.js");
 
 const Createcategory = asyncHandler(async (req, res) => {
   // Set the static path for category images
@@ -48,8 +48,18 @@ const Createcategory = asyncHandler(async (req, res) => {
   });
 });
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/category");
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ storage });
+
 const UpdateCategory = asyncHandler(async (req, res) => {
-  req.uploadPath = "uploads/category";
   upload.single("category_image")(req, res, async (err) => {
     if (err) {
       throw new ErrorHandler(err.message, 400);
@@ -57,30 +67,23 @@ const UpdateCategory = asyncHandler(async (req, res) => {
 
     const { category_id, new_category_name } = req.body;
 
-    // Check if category_id and new_category_name are provided
     if (!category_id || !new_category_name) {
       throw new ErrorHandler("Please enter all the required fields.", 400);
     }
 
     try {
-      // Find the category by ID and update its name and optionally its image
       const updateData = { category_name: new_category_name };
       if (req.file) {
-        const categoryImage = req.file.path.replace(/\\/g, "/"); // Normalize file path
+        const categoryImage = req.file.path.replace(/\\/g, "/");
         updateData.category_image = categoryImage;
       }
 
-      const category = await Category.findByIdAndUpdate(
-        category_id,
-        updateData,
-        { new: true } // To return the updated category
-      );
+      const category = await Category.findByIdAndUpdate(category_id, updateData, { new: true });
 
       if (!category) {
         throw new ErrorHandler("Category not found.", 400);
       }
 
-      // Return the updated category
       return res.status(200).json({
         category,
         message: "Category updated successfully.",

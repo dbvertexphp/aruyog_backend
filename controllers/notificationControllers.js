@@ -5,9 +5,9 @@ const { AdminNotificationMessages } = require("../models/adminnotificationsmodel
 const asyncHandler = require("express-async-handler");
 const moment = require("moment-timezone");
 const baseURL = process.env.BASE_URL;
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+// });
 
 const sendFCMNotification = (registrationToken, title, body, imageUrl, url) => {
   const message = {

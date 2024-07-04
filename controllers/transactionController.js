@@ -5,60 +5,9 @@ const Course = require("../models/course");
 const baseURL = process.env.BASE_URL;
 // const Notification = require("../models/Notification");
 const TeacherNotification = require("../models/teacherNotificationModel");
-const { User, NotificationMessages, AdminDashboard, WebNotification } = require("../models/userModel.js");
+const { User } = require("../models/userModel.js");
 const { addNotification } = require("./teacherNotificationController");
-
-// const addTransaction = asyncHandler(async (req, res) => {
-//   const user_id = req.headers.userID;
-//   const { teacher_id, course_id, transaction_id, amount, payment_id, payment_status } = req.body;
-
-//   if (!user_id || !teacher_id || !course_id || !transaction_id || !amount || !payment_id || !payment_status) {
-//     return res.status(400).json({ message: "Invalid input" });
-//   }
-
-//   try {
-//     const course = await Course.findById(course_id);
-
-//     if (!course) {
-//       return res.status(404).json({ message: "Course not found" });
-//     }
-
-//     // Check the type of course to determine maximum userIds allowed
-//     const maxUserIdsAllowed = course.type === "group_course" ? 3 : 1;
-
-//     if (course.userIds.length >= maxUserIdsAllowed) {
-//       return res.status(400).json({
-//         message: `Maximum capacity (${maxUserIdsAllowed}) reached for this course`,
-//       });
-//     }
-
-//     const newTransaction = new Transaction({
-//       user_id,
-//       teacher_id,
-//       course_id,
-//       transaction_id,
-//       amount,
-//       payment_id,
-//       payment_status,
-//     });
-
-//     const savedTransaction = await newTransaction.save();
-
-//     // Update Course with userId if not already included
-//     if (!course.userIds.includes(user_id)) {
-//       course.userIds.push(user_id);
-//       await course.save();
-//     }
-
-//     res.status(201).json({
-//       message: "Transaction added successfully",
-//       transaction: savedTransaction,
-//     });
-//   } catch (error) {
-//     console.error("Error adding transaction:", error.message);
-//     res.status(500).json({ message: "Internal Server Error" });
-//   }
-// });
+const admin = require("firebase-admin"); // Import firebase-admin
 
 const addTransaction = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
@@ -105,7 +54,7 @@ const addTransaction = asyncHandler(async (req, res) => {
     // Send notification to teacher
     const teacher = await User.findById(teacher_id);
 
-    if (teacher && teacher.firebase_token) {
+    if (teacher && teacher.firebase_token && teacher.firebase_token !== "dummy_token") {
       const message = {
         notification: {
           title: "New Transaction",
@@ -118,7 +67,27 @@ const addTransaction = asyncHandler(async (req, res) => {
     }
 
     // Add notification to the teacher's notification collection
-    await addNotification(teacher_id, "New Transaction", `You have received a new transaction for course ${course.title}`);
+    await addNotification(user_id, teacher_id, "New Transaction", course.title, amount);
+
+    // Send notification to admin
+    const adminUser = await User.findOne({ role: "admin" });
+
+    if (adminUser && adminUser.firebase_token && adminUser.firebase_token !== "dummy_token") {
+      const adminMessage = {
+        notification: {
+          title: "New Transaction",
+          body: `A new transaction has been made for course ${course.title}`,
+        },
+        token: adminUser.firebase_token,
+      };
+
+      await admin.messaging().send(adminMessage);
+    }
+
+    // Add notification to the admin's notification collection
+    if (adminUser) {
+      await addNotification(user_id, adminUser._id, "New Transaction", course.title, amount);
+    }
 
     res.status(201).json({
       message: "Transaction added successfully",
@@ -129,6 +98,7 @@ const addTransaction = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 const getAllTransactions = asyncHandler(async (req, res) => {
   const { page = 1, search = "", Short = "" } = req.body;
   const perPage = 10; // You can adjust this according to your requirements
