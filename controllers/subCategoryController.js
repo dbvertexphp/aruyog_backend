@@ -336,6 +336,51 @@ const getSubCategoryByCategoryId = asyncHandler(async (req, res) => {
   }
 });
 
+const getSubCategoryByCategoryIdInAdmin = asyncHandler(async (req, res) => {
+  const { category_id } = req.params;
+  console.log(req.params);
+  try {
+    // Check if category_id is provided
+    if (!category_id) {
+      return res.status(400).json({
+        message: "Please provide category ID.",
+        status: false,
+      });
+    }
+
+    // Find the category by ID
+    const category = await Category.findById(category_id);
+
+    if (!category) {
+      return res.status(404).json({
+        message: "Category not found.",
+        status: false,
+      });
+    }
+
+    // Extract subcategories
+    const subcategories = category.subcategories.map((subcategory) => ({
+      subcategory_id: subcategory._id,
+      subcategory_name: subcategory.subcategory_name,
+      subcategory_image: subcategory.subcategory_image,
+      datetime: subcategory.datetime,
+    }));
+
+    // Return the subcategories
+    res.status(200).json({
+      category_name: category.category_name,
+      subcategories,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error fetching subcategories:", error);
+    res.status(500).json({
+      message: "Internal Server Error.",
+      status: false,
+    });
+  }
+});
+
 module.exports = {
   createSubcategory,
   getAllSubCategories,
@@ -345,4 +390,5 @@ module.exports = {
   updateSubCategory,
   getAllSubCategoriesAdminpage,
   getSubCategoryByCategoryId,
+  getSubCategoryByCategoryIdInAdmin,
 };

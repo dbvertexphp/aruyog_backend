@@ -2,6 +2,8 @@ const asyncHandler = require("express-async-handler");
 const TeacherPaymentStatus = require("../models/teacherPaymentStatusModel");
 const { User } = require("../models/userModel");
 
+const { startOfMonth, endOfMonth, subMonths, parse, format, isWithinInterval } = require("date-fns");
+
 const addTeacherPaymentStatus = asyncHandler(async (req, res) => {
   const { teacher_id, amount, payment_datetime } = req.body;
   console.log(req.body);
@@ -67,4 +69,62 @@ const getTeacherPaymentStatuses = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { addTeacherPaymentStatus, getTeacherPaymentStatuses };
+const calculatePayment = asyncHandler(async (req, res) => {
+  try {
+    const teacherId = req.headers.userID; // Ensure correct case for headers field (all lowercase).
+    if (!teacherId) {
+      return res.status(400).json({ error: "UserID header is required" });
+    }
+
+    const currentDate = new Date();
+    const currentMonthStart = startOfMonth(currentDate);
+    const currentMonthEnd = endOfMonth(currentDate);
+
+    const payments = await TeacherPaymentStatus.find({ teacher_id: teacherId });
+
+    const teacherInfo = await User.findById(teacherId);
+    const fullName = teacherInfo ? teacherInfo.full_name : "Unknown";
+    const profile_pic = teacherInfo ? teacherInfo.profile_pic : "Unknown";
+
+    const totalAmount = payments.reduce((total, payment) => total + payment.amount, 0);
+
+    // Calculate current month total
+    const currentMonthPayments = payments.filter((payment) => isWithinInterval(parse(payment.payment_datetime, "dd/MM/yyyy", new Date()), { start: currentMonthStart, end: currentMonthEnd }));
+    const currentMonthTotal = currentMonthPayments.reduce((total, payment) => total + payment.amount, 0);
+
+    // Calculate previous months totals
+    const previousMonthTotals = [];
+    const distinctMonths = new Set();
+
+    // Collect all distinct months from payments
+    payments.forEach((payment) => {
+      const paymentDate = parse(payment.payment_datetime, "dd/MM/yyyy", new Date());
+      const monthKey = format(paymentDate, "MMMM yyyy");
+      distinctMonths.add(monthKey);
+    });
+
+    // Iterate through each distinct month and calculate totals
+    distinctMonths.forEach((monthKey) => {
+      const monthDate = parse(`01 ${monthKey}`, "dd MMMM yyyy", new Date());
+      const monthStart = startOfMonth(monthDate);
+      const monthEnd = endOfMonth(monthDate);
+
+      const monthPayments = payments.filter((payment) => isWithinInterval(parse(payment.payment_datetime, "dd/MM/yyyy", new Date()), { start: monthStart, end: monthEnd }));
+      const monthTotal = monthPayments.reduce((total, payment) => total + payment.amount, 0);
+
+      previousMonthTotals.push({ month: monthKey, totalAmount: monthTotal });
+    });
+
+    res.json({
+      totalAmount,
+      currentMonthTotals: [{ month: format(currentMonthStart, "MMMM yyyy"), totalAmount: currentMonthTotal }],
+      previousMonthTotals,
+      fullName,
+      profile_pic,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = { addTeacherPaymentStatus, getTeacherPaymentStatuses, calculatePayment };

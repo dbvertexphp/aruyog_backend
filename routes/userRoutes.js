@@ -62,7 +62,7 @@ const protect = require("../middleware/authMiddleware.js");
 const commonProtect = require("../middleware/comman_authMiddleware.js");
 const Authorization = require("../middleware/Authorization.middleware.js");
 const { addRating, getRatingsByTeacherId } = require("../controllers/ratingController.js");
-const { addTeacherPaymentStatus, getTeacherPaymentStatuses } = require("../controllers/teacherPaymentStatusController.js");
+const { addTeacherPaymentStatus, getTeacherPaymentStatuses, calculatePayment } = require("../controllers/teacherPaymentStatusController.js");
 
 const userRoutes = express.Router();
 
@@ -164,4 +164,5 @@ userRoutes.route("/getAllTeachersInAdmin").get(protect, getAllTeachersInAdmin);
 /*------------- addTeacherPaymentStatus --------------------- */
 userRoutes.route("/addTeacherPaymentStatus").post(protect, addTeacherPaymentStatus);
 userRoutes.route("/getTeacherPaymentStatuses").get(protect, getTeacherPaymentStatuses);
+userRoutes.route("/calculatePayment").post(protect, calculatePayment);
 module.exports = { userRoutes };
