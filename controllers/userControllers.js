@@ -797,11 +797,11 @@ const getBankDetails = asyncHandler(async (req, res) => {
 });
 
 const getBankDetailsAdmin = asyncHandler(async (req, res) => {
-  const userId = req.body._id; // Assuming you have user authentication middleware
+  const { teacher_id } = req.params; // Extracting user_id from request parameters
 
   try {
     // Find bank details for the given user ID
-    const bankDetails = await BankDetails.findOne({ userId });
+    const bankDetails = await BankDetails.findOne({ userId: teacher_id });
 
     if (bankDetails) {
       res.status(200).json({
@@ -809,12 +809,13 @@ const getBankDetailsAdmin = asyncHandler(async (req, res) => {
         status: true,
       });
     } else {
-      res.status(200).json({
-        bankDetails,
-        status: true,
+      res.status(404).json({
+        message: "Bank details not found for the user",
+        status: false,
       });
     }
   } catch (error) {
+    console.error("Error fetching bank details:", error.message);
     res.status(500).json({
       message: "Internal Server Error",
       status: false,

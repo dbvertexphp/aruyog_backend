@@ -7,9 +7,20 @@ const TeacherPaymentStatusSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    total_amount: {
+      type: Number,
+      required: true,
+    },
+    remaining_amount: {
+      type: Number,
+      required: true,
+    },
     amount: {
       type: Number,
       required: true,
+    },
+    remark: {
+      type: String,
     },
     payment_datetime: {
       type: String,

@@ -48,8 +48,8 @@ const courseSchema = new Schema(
       },
     ],
 
-    startDate: { type: String, required: true },
-    endDate: { type: String, required: true },
+    startDate: { type: Date },
+    endDate: { type: Date },
     teacher_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }

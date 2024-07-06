@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler");
 const cookie = require("cookie");
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
-const moment = require("moment-timezone");
+// const moment = require("moment-timezone");
 const { User, NotificationMessages, AdminDashboard, WebNotification } = require("../models/userModel.js");
 const dotenv = require("dotenv");
 const baseURL = process.env.BASE_URL;
@@ -12,6 +12,8 @@ const Course = require("../models/course.js");
 const ConnectyCube = require("connectycube");
 const upload = require("../middleware/uploadMiddleware.js");
 const fs = require("fs");
+const { parse, format, addDays, addHours } = require("date-fns");
+const moment = require("moment-business-days");
 
 dotenv.config();
 
@@ -175,114 +177,31 @@ function deleteFile(filePath) {
   });
 }
 
-// POST /api/courses/add
-
-// const CREDENTIALS = {
-//   appId: process.env.CAPPID,
-//   authKey: process.env.AUTHKEY,
-//   authSecret: process.env.AUTHSECRET,
-// };
-
-// const CONFIG = {
-//   debug: { mode: 1 },
-// };
-
-// // Initialize ConnectyCube
-// ConnectyCube.init(CREDENTIALS.appId, CREDENTIALS.authKey, CREDENTIALS.authSecret, CONFIG);
-
-// const updateConnectyCubeUser = async (connectyCubeId, userProfile, sessionToken) => {
-//   try {
-//     const updatedUser = await ConnectyCube.users.update(connectyCubeId, userProfile, [{ token: sessionToken }]);
-//     console.log("ConnectyCube user updated successfully:", updatedUser);
-//     return updatedUser;
-//   } catch (error) {
-//     console.error("Error updating user profile in ConnectyCube:", error);
-//     throw new ErrorHandler("Failed to update user profile in ConnectyCube", 500);
-//   }
-// };
-
-// const updateTeacherProfileData = asyncHandler(async (req, res) => {
-//   const { full_name, mobile, email, experience, education, languages, expertise, about_me } = req.body;
-//   const userId = req.headers.userID; // Assuming user authentication middleware sets this header
-
-//   try {
-//     // Update the user's profile fields in the local database
-//     const updatedUser = await User.findByIdAndUpdate(
-//       userId,
-//       {
-//         $set: {
-//           full_name,
-//           mobile,
-//           email,
-//           experience,
-//           education,
-//           languages,
-//           expertise,
-//           about_me,
-//           datetime: moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
-//         },
-//       },
-//       { new: true }
-//     );
-
-//     if (!updatedUser) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // Prepare user profile update for ConnectyCube
-//     const userProfileUpdate = {
-//       login: mobile,
-//       full_name,
-//       email,
-//       phone: mobile,
-//       // Add other fields as needed
-//     };
-
-//     // Get session token from wherever it's stored (e.g., database, session)
-//     const sessionToken = updatedUser.ConnectyCube_token;
-
-//     // Update user profile in ConnectyCube
-//     const updatedConnectyCubeUser = await updateConnectyCubeUser(updatedUser.ConnectyCube_id, userProfileUpdate, sessionToken);
-
-//     return res.status(200).json({
-//       _id: updatedUser._id,
-//       full_name: updatedUser.full_name,
-//       mobile: updatedUser.mobile,
-//       email: updatedUser.email,
-//       experience: updatedUser.experience,
-//       education: updatedUser.education,
-//       languages: updatedUser.languages,
-//       expertise: updatedUser.expertise,
-//       about_me: updatedUser.about_me,
-//       pic: updatedUser.profile_pic,
-//       status: true,
-//     });
-//   } catch (error) {
-//     console.error("Error updating user profile:", error.message);
-//     return res.status(error.statusCode || 500).json({ error: error.message });
-//   }
-// });
-
+// Function to add business days (excluding weekends)
 const addCourse = asyncHandler(async (req, res) => {
-  const { title, category_id, sub_category_id, type, startTime, endTime, startDate, endDate } = req.body;
+  const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
   const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
 
   try {
     // Validate required fields
-    if (!title || !category_id || !sub_category_id || !type) {
+    if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime || !startDate) {
       return res.status(400).json({
-        error: "All fields (title, category_id, sub_category_id, type) are required.",
+        error: "All fields (title, category_id, sub_category_id, type, startTime, endTime, startDate) are required.",
       });
     }
 
-    // Validate startDate and endDate are valid dates
-    if (!startDate || !endDate || isNaN(Date.parse(startDate)) || isNaN(Date.parse(endDate))) {
-      return res.status(400).json({
-        error: "Invalid startDate or endDate format.",
-      });
-    }
+    // Configure business days to exclude weekends
+    moment.updateLocale("us", {
+      workingWeekdays: [1, 2, 3, 4, 5], // Monday to Friday
+    });
 
-    // Create new course with provided dates
+    // Parse startDate to moment object (assuming startDate is in MM/DD/YYYY format)
+    const parsedStartDate = moment(startDate, "MM/DD/YYYY");
+
+    // Calculate endDate by adding 21 business days (excluding weekends)
+    const calculatedEndDate = parsedStartDate.add({ businessDays: 21 });
+
+    // Create new course with parsed dates
     const newCourse = new Course({
       title,
       category_id,
@@ -290,8 +209,8 @@ const addCourse = asyncHandler(async (req, res) => {
       type,
       startTime,
       endTime,
-      startDate: new Date(startDate), // Convert startDate string to Date object
-      endDate: new Date(endDate), // Convert endDate string to Date object
+      startDate: parsedStartDate.toDate(),
+      endDate: calculatedEndDate.toDate(),
       teacher_id,
     });
 
@@ -305,8 +224,8 @@ const addCourse = asyncHandler(async (req, res) => {
       type: savedCourse.type,
       startTime: savedCourse.startTime,
       endTime: savedCourse.endTime,
-      startDate: savedCourse.startDate,
-      endDate: savedCourse.endDate,
+      startDate: parsedStartDate.format("MM/DD/YYYY"), // Format startDate to MM/DD/YYYY
+      endDate: calculatedEndDate.format("MM/DD/YYYY"), // Format endDate to MM/DD/YYYY
       teacher_id: savedCourse.teacher_id,
       status: true,
     });
