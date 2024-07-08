@@ -2148,22 +2148,22 @@ const getAllCourse = asyncHandler(async (req, res) => {
 
     const transformedCoursesPromises = courses.map(async (course) => {
       let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
-      console.log(courses);
-      if (transformedCourse.startTime) {
-        transformedCourse.startTime = moment(transformedCourse.startTime).format("DD/MM/YYYY");
-      }
-      if (transformedCourse.endTime) {
-        transformedCourse.endTime = moment(transformedCourse.endTime).format("DD/MM/YYYY");
-      }
 
       // Fetch subcategory name
       const category = await Category.findById(transformedCourse.category_id);
-      const subCategory = category.subcategories.id(transformedCourse.sub_category_id);
+      if (category) {
+        const subCategory = category.subcategories.id(transformedCourse.sub_category_id);
+        if (subCategory) {
+          transformedCourse.category_name = category.category_name;
+          transformedCourse.subcategory_name = subCategory.subcategory_name;
+        }
+      }
 
-      transformedCourse.category_name = category.category_name;
-      transformedCourse.subcategory_name = subCategory.subcategory_name;
+      // Fetch startDate and endDate
+      transformedCourse.startDate = moment(course.startDate).format("YYYY/MM/DD");
+      transformedCourse.endDate = moment(course.endDate).format("YYYY/MM/DD");
 
-      // Remove the category and subcategory objects from the response
+      // Remove the category and subcategory objects from the response if needed
       delete transformedCourse.category_id.subcategories;
       delete transformedCourse.sub_category_id;
 
@@ -2175,6 +2175,8 @@ const getAllCourse = asyncHandler(async (req, res) => {
         type: transformedCourse.type,
         startTime: transformedCourse.startTime,
         endTime: transformedCourse.endTime,
+        startDate: transformedCourse.startDate,
+        endDate: transformedCourse.endDate,
         teacher: transformedCourse.teacher_id,
         createdAt: transformedCourse.createdAt,
         updatedAt: transformedCourse.updatedAt,

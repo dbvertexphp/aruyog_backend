@@ -12,8 +12,9 @@ const Course = require("../models/course.js");
 const ConnectyCube = require("connectycube");
 const upload = require("../middleware/uploadMiddleware.js");
 const fs = require("fs");
-const { parse, format, addDays, addHours } = require("date-fns");
+const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
 const moment = require("moment-business-days");
+const { log } = require("util");
 
 dotenv.config();
 
@@ -177,7 +178,6 @@ function deleteFile(filePath) {
   });
 }
 
-// Function to add business days (excluding weekends)
 const addCourse = asyncHandler(async (req, res) => {
   const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
   const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
@@ -190,16 +190,60 @@ const addCourse = asyncHandler(async (req, res) => {
       });
     }
 
-    // Configure business days to exclude weekends
-    moment.updateLocale("us", {
-      workingWeekdays: [1, 2, 3, 4, 5], // Monday to Friday
+    // Validate and parse startDate
+    const parsedStartDate = new Date(startDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
+    if (isNaN(parsedStartDate.getTime())) {
+      return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
+    }
+
+    // Calculate start and end of the month based on startDate
+    const startOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), 1);
+    const endOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, 0);
+
+    // Check if the teacher has already added 6 courses this month
+    const coursesCount = await Course.countDocuments({
+      teacher_id,
+      startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Count documents within the current month
     });
 
-    // Parse startDate to moment object (assuming startDate is in MM/DD/YYYY format)
-    const parsedStartDate = moment(startDate, "MM/DD/YYYY");
+    console.log(coursesCount);
 
-    // Calculate endDate by adding 21 business days (excluding weekends)
-    const calculatedEndDate = parsedStartDate.add({ businessDays: 21 });
+    if (coursesCount >= 6) {
+      const nextMonthStart = getNextMonthStart(parsedStartDate);
+      return res.status(400).json({
+        error: `Teacher cannot add more than 6 courses in a month. Next available date to add courses: ${formatDate(nextMonthStart)}.`,
+      });
+    }
+
+    // Check if the course types are valid for the current month
+    const courses = await Course.find({
+      teacher_id,
+      startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Only consider courses in the current month
+    });
+
+    let groupCourseCount = 0;
+    let singleCourseCount = 0;
+
+    courses.forEach((course) => {
+      if (course.type === "group_course") {
+        groupCourseCount++;
+      } else if (course.type === "single_course") {
+        singleCourseCount++;
+      }
+    });
+
+    console.log(groupCourseCount);
+    console.log(singleCourseCount);
+
+    // Check if the teacher can add more of the requested type
+    if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
+      return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
+    }
+
+    // Calculate end date excluding weekends
+    const endDate = calculateEndDate(startDate, 21); // Excluding weekends
+    const formattedStartDate = formatDate(startDate);
+    const formattedEndDate = formatDate(endDate);
 
     // Create new course with parsed dates
     const newCourse = new Course({
@@ -209,8 +253,8 @@ const addCourse = asyncHandler(async (req, res) => {
       type,
       startTime,
       endTime,
-      startDate: parsedStartDate.toDate(),
-      endDate: calculatedEndDate.toDate(),
+      startDate: formattedStartDate,
+      endDate: formattedEndDate,
       teacher_id,
     });
 
@@ -224,8 +268,8 @@ const addCourse = asyncHandler(async (req, res) => {
       type: savedCourse.type,
       startTime: savedCourse.startTime,
       endTime: savedCourse.endTime,
-      startDate: parsedStartDate.format("MM/DD/YYYY"), // Format startDate to MM/DD/YYYY
-      endDate: calculatedEndDate.format("MM/DD/YYYY"), // Format endDate to MM/DD/YYYY
+      startDate: savedCourse.startDate,
+      endDate: savedCourse.endDate,
       teacher_id: savedCourse.teacher_id,
       status: true,
     });
@@ -234,6 +278,94 @@ const addCourse = asyncHandler(async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+const updateCourseDates = asyncHandler(async (req, res) => {
+  const { course_id, newStartDate } = req.body;
+  const teacher_id = req.headers.userID;
+
+  try {
+    // Validate required fields
+    if (!course_id || !newStartDate) {
+      return res.status(400).json({ error: "Course ID and new start date are required." });
+    }
+
+    // Validate and parse new startDate
+    const parsedNewStartDate = new Date(newStartDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
+    if (isNaN(parsedNewStartDate.getTime())) {
+      return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
+    }
+
+    // Find the course by course_id and teacher_id
+    const course = await Course.findById({ _id: course_id, teacher_id: teacher_id });
+    console.log(course);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Calculate new end date excluding weekends
+    const newEndDate = calculateEndDate(newStartDate, 21); // Excluding weekends
+    const formattedNewStartDate = formatDate(newStartDate);
+    const formattedNewEndDate = formatDate(newEndDate);
+
+    console.log(formattedNewStartDate);
+    console.log(formattedNewEndDate);
+
+    // Update course with new dates
+    course.startDate = formattedNewStartDate;
+    course.endDate = formattedNewEndDate;
+
+    const updatedCourse = await course.save();
+
+    res.status(200).json({
+      _id: updatedCourse._id,
+      title: updatedCourse.title,
+      category_id: updatedCourse.category_id,
+      sub_category_id: updatedCourse.sub_category_id,
+      type: updatedCourse.type,
+      startTime: updatedCourse.startTime,
+      endTime: updatedCourse.endTime,
+      startDate: updatedCourse.startDate,
+      endDate: updatedCourse.endDate,
+      teacher_id: updatedCourse.teacher_id,
+      status: true,
+    });
+  } catch (error) {
+    console.error("Error updating course dates:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// Helper function to format date in YYYY/MM/DD format
+function formatDate(date) {
+  const d = new Date(date);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${year}/${month}/${day}`;
+}
+
+// Helper function to calculate the start of the next month
+function getNextMonthStart(date) {
+  const d = new Date(date);
+  const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  return nextMonth;
+}
+
+// Function to calculate end date excluding weekends using date-fns
+const calculateEndDate = (startDate, daysToAdd) => {
+  let currentDay = new Date(startDate);
+  let count = 0;
+
+  while (count < daysToAdd) {
+    currentDay = addDays(currentDay, 1);
+
+    if (!isWeekend(currentDay)) {
+      count++;
+    }
+  }
+
+  return currentDay.toISOString().split("T")[0];
+};
 
 const getTodayCourse = asyncHandler(async (req, res) => {
   const userId = req.headers.userID;
@@ -313,4 +445,4 @@ const getMyClasses = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates };

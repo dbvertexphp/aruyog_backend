@@ -27,6 +27,14 @@ const courseSchema = new Schema(
         return this.type === "group_course"; // Required only if it's a group course
       },
     },
+    startDate: {
+      type: String,
+      required: true,
+    },
+    endDate: {
+      type: String,
+      required: true,
+    },
     userIds: {
       type: [
         {
@@ -48,8 +56,6 @@ const courseSchema = new Schema(
       },
     ],
 
-    startDate: { type: Date },
-    endDate: { type: Date },
     teacher_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
