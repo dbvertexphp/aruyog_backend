@@ -3,11 +3,26 @@ const asyncHandler = require("express-async-handler");
 const Transaction = require("../models/transactionModel");
 const Course = require("../models/course");
 const baseURL = process.env.BASE_URL;
-// const Notification = require("../models/Notification");
-const TeacherNotification = require("../models/teacherNotificationModel");
 const { User } = require("../models/userModel.js");
 const { addNotification } = require("./teacherNotificationController");
+
 const admin = require("firebase-admin"); // Import firebase-admin
+const sendFCMNotification = async (registrationToken, title, body) => {
+  const message = {
+    notification: {
+      title,
+      body,
+    },
+    token: registrationToken,
+  };
+
+  try {
+    const response = await admin.messaging().send(message);
+    return { success: true, response };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
 
 const addTransaction = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
@@ -54,40 +69,38 @@ const addTransaction = asyncHandler(async (req, res) => {
     // Send notification to teacher
     const teacher = await User.findById(teacher_id);
 
-    if (teacher && teacher.firebase_token && teacher.firebase_token !== "dummy_token") {
-      const message = {
-        notification: {
-          title: "New Transaction",
-          body: `You have received a new transaction for course ${course.title}`,
-        },
-        token: teacher.firebase_token,
-      };
-
-      await admin.messaging().send(message);
+    if (teacher && teacher.firebase_token) {
+      const registrationToken = teacher.firebase_token;
+      const title = "New Course Purchase";
+      const body = `A new transaction has been made for the course: ${course.title}.`;
+      console.log(registrationToken);
+      const notificationResult = await sendFCMNotification(registrationToken, title, body);
+      if (notificationResult.success) {
+        console.log("Notification sent successfully:", notificationResult.response);
+      } else {
+        console.error("Failed to send notification:", notificationResult.error);
+      }
     }
+
+    // if (adminUser && adminUser.firebase_token ) {
+    //   const adminMessage = {
+    //     notification: {
+    //       title: "New Transaction",
+    //       body: `A new transaction has been made for course ${course.title}`,
+    //     },
+    //     token: adminUser.firebase_token,
+    //   };
+
+    //   await admin.messaging().send(adminMessage);
+    // }
+
+    // // Add notification to the admin's notification collection
+    // if (adminUser) {
+    //   await addNotification(user_id, adminUser._id, "New Transaction", course.title, amount);
+    // }
 
     // Add notification to the teacher's notification collection
     await addNotification(user_id, teacher_id, "New Transaction", course.title, amount);
-
-    // Send notification to admin
-    const adminUser = await User.findOne({ role: "admin" });
-
-    if (adminUser && adminUser.firebase_token && adminUser.firebase_token !== "dummy_token") {
-      const adminMessage = {
-        notification: {
-          title: "New Transaction",
-          body: `A new transaction has been made for course ${course.title}`,
-        },
-        token: adminUser.firebase_token,
-      };
-
-      await admin.messaging().send(adminMessage);
-    }
-
-    // Add notification to the admin's notification collection
-    if (adminUser) {
-      await addNotification(user_id, adminUser._id, "New Transaction", course.title, amount);
-    }
 
     res.status(201).json({
       message: "Transaction added successfully",

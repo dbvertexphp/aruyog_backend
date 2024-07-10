@@ -4,6 +4,22 @@ const Course = require("../models/course");
 const { User } = require("../models/userModel.js");
 const admin = require("firebase-admin"); // Import firebase-admin
 const TeacherAttendance = require("../models/teacherAttendanceModel.js");
+const sendFCMNotification = async (registrationToken, title, body) => {
+  const message = {
+    notification: {
+      title,
+      body,
+    },
+    token: registrationToken,
+  };
+
+  try {
+    const response = await admin.messaging().send(message);
+    return { success: true, response };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
 
 // Function to add a new notification
 const addNotification = async (userId, teacher_Id, title, course_title, amount) => {
@@ -69,19 +85,19 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "No users subscribed to this course" });
     }
 
-    // Prepare notification message
-    const message = {
-      notification: {
-        title: "New Course Notification",
-        body: `A new course notification for ${course.title}`,
-      },
-    };
-
     // Send notifications to each user
     const notificationPromises = users.map(async (user) => {
-      if (user.firebase_token && user.firebase_token !== "dummy_token") {
-        message.token = user.firebase_token;
-        await admin.messaging().send(message);
+      if (user.firebase_token) {
+        const registrationToken = user.firebase_token;
+        const title = "New Course Notification";
+        const body = `A new course notification for ${course.title}`;
+        console.log(registrationToken);
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
       }
     });
 

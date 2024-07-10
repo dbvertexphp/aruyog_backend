@@ -428,6 +428,7 @@ const getMyClasses = asyncHandler(async (req, res) => {
         $gte: `01-${currentMonth}-${currentYear}`,
         $lte: `31-${currentMonth}-${currentYear}`,
       },
+      userIds: { $not: { $size: 0 } },
     });
 
     if (!courses || courses.length === 0) {
@@ -437,8 +438,38 @@ const getMyClasses = asyncHandler(async (req, res) => {
       });
     }
 
+    // Extracting all userIds from courses
+    const userIds = courses.reduce((acc, course) => {
+      acc.push(...course.userIds);
+      return acc;
+    }, []);
+
+    // Fetching only required fields from User collection
+    const users = await User.find(
+      { _id: { $in: userIds } },
+      {
+        profile_pic: 1,
+        ConnectyCube_token: 1,
+        ConnectyCube_id: 1,
+        full_name: 1,
+        firebase_token: 1,
+      }
+    );
+
+    // Mapping userIds to user details for quick lookup
+    const userMap = users.reduce((acc, user) => {
+      acc[user._id] = user;
+      return acc;
+    }, {});
+
+    // Adding user details to each course
+    const coursesWithUsers = courses.map((course) => ({
+      ...course.toObject({ getters: true, virtuals: true }),
+      users: course.userIds.map((userId) => userMap[userId]),
+    }));
+
     res.json({
-      course: courses,
+      courses: coursesWithUsers,
       status: true,
     });
   } catch (error) {

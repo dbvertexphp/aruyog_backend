@@ -2,8 +2,25 @@ const asyncHandler = require("express-async-handler");
 const TeacherPaymentStatus = require("../models/teacherPaymentStatusModel");
 const { User } = require("../models/userModel");
 const Transaction = require("../models/transactionModel");
-
 const { startOfMonth, endOfMonth, subMonths, parse, format, isWithinInterval } = require("date-fns");
+const admin = require("firebase-admin"); // Import firebase-admin
+
+const sendFCMNotification = async (registrationToken, title, body) => {
+  const message = {
+    notification: {
+      title,
+      body,
+    },
+    token: registrationToken,
+  };
+
+  try {
+    const response = await admin.messaging().send(message);
+    return { success: true, response };
+  } catch (error) {
+    return { success: false, error };
+  }
+};
 
 const addTeacherPaymentStatus = asyncHandler(async (req, res) => {
   const { teacher_id, amount, payment_datetime, remark } = req.body;
@@ -54,18 +71,17 @@ const addTeacherPaymentStatus = asyncHandler(async (req, res) => {
     const teacher = await User.findById(teacher_id);
     const firebaseToken = teacher ? teacher.firebase_token : null;
 
-    if (firebaseToken && firebaseToken !== "dummy_token") {
-      // Prepare notification message
-      const message = {
-        notification: {
-          title: "Payment Received",
-          body: `A payment of amount ${amount} has been made. Remaining amount: ${remainingAmount}.`,
-        },
-        token: firebaseToken,
-      };
-
-      // Send notification using Firebase
-      await admin.messaging().send(message);
+    if (firebaseToken) {
+      const registrationToken = teacher.firebase_token;
+      const title = "Payment Received";
+      const body = `A payment of amount ${amount} has been made. Remaining amount: ${remainingAmount}.`;
+      console.log(registrationToken);
+      const notificationResult = await sendFCMNotification(registrationToken, title, body);
+      if (notificationResult.success) {
+        console.log("Notification sent successfully:", notificationResult.response);
+      } else {
+        console.error("Failed to send notification:", notificationResult.error);
+      }
     }
 
     // Respond with the saved document

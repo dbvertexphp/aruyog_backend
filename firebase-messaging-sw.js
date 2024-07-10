@@ -14,30 +14,27 @@
 
 // firebase.initializeApp(firebaseConfig);
 
-// // Retrieve firebase messaging
+// Retrieve firebase messaging
 // const messaging = firebase.messaging();
 // const channel = new BroadcastChannel("notificationChannel");
 
 // // Handle incoming messages while the app is not in focus (i.e in the background, hidden behind other tabs, or completely closed).
 // messaging.onBackgroundMessage(function (payload) {
-//       channel.postMessage({ type: "notificationReceived", payload: payload });
-//       const notificationTitle = payload.data.title;
-//       const notificationOptions = {
-//             body: payload.data.body,
-//             image: payload.data.image, // Add image if available
-//       };
+//   channel.postMessage({ type: "notificationReceived", payload: payload });
+//   const notificationTitle = payload.data.title;
+//   const notificationOptions = {
+//     body: payload.data.body,
+//     image: payload.data.image, // Add image if available
+//   };
 
-//       return self.registration.showNotification(
-//             notificationTitle,
-//             notificationOptions
-//       );
+//   return self.registration.showNotification(notificationTitle, notificationOptions);
 // });
 
 // // Handle notification click event
 // self.addEventListener("notificationclick", function (event) {
-//       const notification = event.notification;
-//       const url = notification.data.url; // Extract dynamic URL from notification data payload
+//   const notification = event.notification;
+//   const url = notification.data.url; // Extract dynamic URL from notification data payload
 
-//       // Redirect to the specified URL
-//       event.waitUntil(clients.openWindow(url));
+//   // Redirect to the specified URL
+//   event.waitUntil(clients.openWindow(url));
 // });
