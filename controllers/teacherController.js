@@ -372,14 +372,15 @@ const getTodayCourse = asyncHandler(async (req, res) => {
   const currentDateTime = moment().tz("Asia/Kolkata");
   const currentMonth = currentDateTime.format("MM");
   const currentYear = currentDateTime.format("YYYY");
+  const currentDay = currentDateTime.format("DD");
   const currentTime = currentDateTime.format("hh:mm A");
 
   try {
     const courses = await Course.find({
       teacher_id: userId,
       startDate: {
-        $gte: `01-${currentMonth}-${currentYear}`,
-        $lte: `31-${currentMonth}-${currentYear}`,
+        $gte: new Date(`${currentYear}-${currentMonth}-01`),
+        $lte: new Date(`${currentYear}-${currentMonth}-${currentDay}`),
       },
     });
 
@@ -391,10 +392,14 @@ const getTodayCourse = asyncHandler(async (req, res) => {
     }
 
     const filteredCourses = courses.filter((course) => {
-      const courseStartTime = moment(course.startTime, "hh:mm A").format("hh:mm A");
-      const currentTimeOnly = moment(currentTime, "hh:mm A").format("hh:mm A");
-      return moment(courseStartTime, "hh:mm A").isAfter(moment(currentTimeOnly, "hh:mm A"));
+      const courseStartTime = moment(course.startTime, "hh:mm A");
+      const currentTimeOnly = moment(currentTime, "hh:mm A");
+      console.log("Course start time:", courseStartTime.format("hh:mm A"));
+      console.log("Current time:", currentTimeOnly.format("hh:mm A"));
+      return courseStartTime.isAfter(currentTimeOnly);
     });
+
+    console.log("Filtered courses:", filteredCourses);
 
     res.json({
       course: filteredCourses,

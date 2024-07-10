@@ -32,7 +32,7 @@ const getTeacherNotifications = asyncHandler(async (req, res) => {
 
     const notifications = await TeacherNotification.find({ user_id: req.headers.userID })
       .sort({ created_at: -1 }) // Sort by descending order of creation date
-      .populate("user_id", "full_name") // Populate user details from User collection
+      .populate("user_id", "full_name profile_pic") // Populate user details from User collection
       .skip((page - 1) * perPage)
       .limit(perPage)
       .exec();

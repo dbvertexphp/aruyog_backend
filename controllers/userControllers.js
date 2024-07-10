@@ -285,7 +285,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
       return next(new ErrorHandler(err.message, 400));
     }
 
-    const { first_name, last_name, email, mobile, password, cpassword, role } = req.body;
+    const { first_name, last_name, email, mobile, password, cpassword, role, firebase_token } = req.body;
     if (!first_name || !last_name || !email || !mobile || !password || !cpassword || !role) {
       return next(new ErrorHandler("Please enter all the required fields.", 400));
     }
@@ -321,6 +321,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
       password,
       otp, // Add the OTP field
       full_name,
+      firebase_token,
       profile_pic, // Add profile_pic field
       ConnectyCube_token: token,
       ConnectyCube_id: id,
@@ -352,6 +353,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
         role: user.role,
         otp_verified: user.otp_verified,
         otp: user.otp,
+        firebase_token,
         profile_pic: user.profile_pic, // Include profile_pic in response
         ConnectyCube_token: user.ConnectyCube_token,
         ConnectyCube_id: user.ConnectyCube_id,
