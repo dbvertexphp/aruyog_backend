@@ -335,6 +335,34 @@ const updateCourseDates = asyncHandler(async (req, res) => {
   }
 });
 
+const getTodayCourse = asyncHandler(async (req, res) => {
+  const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
+  const currentDate = new Date(); // Get current date
+
+  try {
+    // Find courses where startDate matches the current date and teacher_id matches
+    const courses = await Course.find({
+      teacher_id,
+      startDate: formatDate(currentDate), // Format current date to match stored
+      userIds: { $ne: [] },
+    })
+      .sort({ startTime: -1 }) // Sort by startTime ascending order
+      .exec();
+
+    if (!courses || courses.length === 0) {
+      return res.status(200).json({
+        message: "Course Not Found",
+        status: false,
+      });
+    }
+
+    res.status(200).json({ courses });
+  } catch (error) {
+    console.error("Error fetching today's courses:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
 // Helper function to format date in YYYY/MM/DD format
 function formatDate(date) {
   const d = new Date(date);
@@ -367,52 +395,53 @@ const calculateEndDate = (startDate, daysToAdd) => {
   return currentDay.toISOString().split("T")[0];
 };
 
-const getTodayCourse = asyncHandler(async (req, res) => {
-  const userId = req.headers.userID;
-  const currentDateTime = moment().tz("Asia/Kolkata");
-  const currentMonth = currentDateTime.format("MM");
-  const currentYear = currentDateTime.format("YYYY");
-  const currentDay = currentDateTime.format("DD");
-  const currentTime = currentDateTime.format("hh:mm A");
+// const getTodayCourse = asyncHandler(async (req, res) => {
+//   const userId = req.headers.userID;
+//   const currentDateTime = moment().tz("Asia/Kolkata");
+//   const currentMonth = currentDateTime.format("MM");
+//   const currentYear = currentDateTime.format("YYYY");
+//   const currentDay = currentDateTime.format("DD");
+//   const currentTime = currentDateTime.format("hh:mm A");
 
-  try {
-    const courses = await Course.find({
-      teacher_id: userId,
-      startDate: {
-        $gte: new Date(`${currentYear}-${currentMonth}-01`),
-        $lte: new Date(`${currentYear}-${currentMonth}-${currentDay}`),
-      },
-    });
+//   try {
+//     const courses = await Course.find({
+//       teacher_id: userId,
+//       startDate: {
+//         $gte: new Date(`${currentYear}/${currentMonth}/${currentDay}`),
+//         $lte: new Date(`${currentYear}/${currentMonth}/${currentDay}`),
+//       },
+//     });
 
-    if (!courses || courses.length === 0) {
-      return res.status(200).json({
-        message: "Course Not Found",
-        status: false,
-      });
-    }
+//     console.log(courses);
+//     if (!courses || courses.length === 0) {
+//       return res.status(200).json({
+//         message: "Course Not Found",
+//         status: false,
+//       });
+//     }
 
-    const filteredCourses = courses.filter((course) => {
-      const courseStartTime = moment(course.startTime, "hh:mm A");
-      const currentTimeOnly = moment(currentTime, "hh:mm A");
-      console.log("Course start time:", courseStartTime.format("hh:mm A"));
-      console.log("Current time:", currentTimeOnly.format("hh:mm A"));
-      return courseStartTime.isAfter(currentTimeOnly);
-    });
+//     const filteredCourses = courses.filter((course) => {
+//       const courseStartTime = moment(course.startTime, "hh:mm A");
+//       const currentTimeOnly = moment(currentTime, "hh:mm A");
+//       console.log("Course start time:", courseStartTime.format("hh:mm A"));
+//       console.log("Current time:", currentTimeOnly.format("hh:mm A"));
+//       return courseStartTime.isAfter(currentTimeOnly);
+//     });
 
-    console.log("Filtered courses:", filteredCourses);
+//     console.log("Filtered courses:", filteredCourses);
 
-    res.json({
-      course: filteredCourses,
-      status: true,
-    });
-  } catch (error) {
-    console.error("GetTodayCourse API error:", error.message);
-    res.status(500).json({
-      message: "Internal Server Error",
-      status: false,
-    });
-  }
-});
+//     res.json({
+//       course: filteredCourses,
+//       status: true,
+//     });
+//   } catch (error) {
+//     console.error("GetTodayCourse API error:", error.message);
+//     res.status(500).json({
+//       message: "Internal Server Error",
+//       status: false,
+//     });
+//   }
+// });
 
 const getMyClasses = asyncHandler(async (req, res) => {
   const userId = req.headers.userID;

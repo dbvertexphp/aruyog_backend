@@ -120,8 +120,8 @@ userRoutes.route("/getHireList").get(protect, getHireListByUserId);
 userRoutes.route("/getHireByMe").get(protect, getHireByMe);
 
 /*------------- Admin Routes --------------------- */
-userRoutes.route("/getAllUsers").post(protect, getAllUsers);
-userRoutes.route("/getAllTeachers").post(protect, getAllTeachers);
+userRoutes.route("/getAllUsers").get(getAllUsers);
+userRoutes.route("/getAllTeachers").get(getAllTeachers);
 userRoutes.route("/getAllHireList").post(protect, getAllHireList);
 userRoutes.route("/updateProfileDataByAdmin").post(protect, updateProfileDataByAdmin);
 userRoutes.route("/getAllDashboardCount").get(protect, getAllDashboardCount);

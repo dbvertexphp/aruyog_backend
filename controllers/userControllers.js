@@ -825,142 +825,17 @@ const getBankDetailsAdmin = asyncHandler(async (req, res) => {
   }
 });
 
-// const getAllUsers = asyncHandler(async (req, res) => {
-//       const { page = 1, search = "", Short = "" } = req.body;
-//       const perPage = 10; // You can adjust this according to your requirements
-
-//       // Build the query based on search and Short
-//       const query = search
-//             ? {
-//                     $or: [
-//                           { first_name: { $regex: search, $options: "i" } },
-//                           { email: { $regex: search, $options: "i" } },
-//                           { last_name: { $regex: search, $options: "i" } },
-//                     ],
-//               }
-//             : {};
-
-//       // Sorting based on Short field
-//       let sortCriteria = {};
-//       if (Short === "Review") {
-//             sortCriteria = { review: -1 }; // Sort by review in descending order
-//       } else if (Short === "watch_time") {
-//             sortCriteria = { watch_time: -1 }; // Sort by watch_time in descending order
-//       } else if (Short === "Subscribe") {
-//             sortCriteria = { subscribe: -1 }; // Sort by subscribe in descending order
-//       } else {
-//             sortCriteria = { _id: -1 }; // Default sorting
-//       }
-
-//       try {
-//             const users = await User.find(query)
-//                   .sort(sortCriteria)
-//                   .skip((page - 1) * perPage)
-//                   .limit(perPage);
-
-//             const totalCount = await User.countDocuments(query);
-//             const totalPages = Math.ceil(totalCount / perPage);
-//             console.log(users);
-
-//             const transformedUsers = users.map((user) => {
-//                   let transformedUser = { ...user.toObject() }; // Convert Mongoose document to plain JavaScript object
-//                   if (transformedUser.pic) {
-//                         transformedUser.pic = `${baseURL}${transformedUser.pic}`;
-//                   }
-//                   if (transformedUser.watch_time) {
-//                         transformedUser.watch_time =
-//                               convertSecondsToReadableTime(
-//                                     transformedUser.watch_time
-//                               );
-//                   }
-//                   return { user: transformedUser };
-//             });
-
-//             const paginationDetails = {
-//                   current_page: parseInt(page),
-//                   data: transformedUsers,
-//                   first_page_url: `${baseURL}api/users?page=1`,
-//                   from: (page - 1) * perPage + 1,
-//                   last_page: totalPages,
-//                   last_page_url: `${baseURL}api/users?page=${totalPages}`,
-//                   links: [
-//                         {
-//                               url: null,
-//                               label: "&laquo; Previous",
-//                               active: false,
-//                         },
-//                         {
-//                               url: `${baseURL}api/users?page=${page}`,
-//                               label: page.toString(),
-//                               active: true,
-//                         },
-//                         {
-//                               url: null,
-//                               label: "Next &raquo;",
-//                               active: false,
-//                         },
-//                   ],
-//                   next_page_url: null,
-//                   path: `${baseURL}api/users`,
-//                   per_page: perPage,
-//                   prev_page_url: null,
-//                   to: (page - 1) * perPage + transformedUsers.length,
-//                   total: totalCount,
-//             };
-//             console.log(paginationDetails);
-
-//             res.json({
-//                   Users: paginationDetails,
-//                   page: page.toString(),
-//                   total_rows: totalCount,
-//             });
-//       } catch (error) {
-//             console.error(error);
-//             res.status(500).json({
-//                   message: "Internal Server Error",
-//                   status: false,
-//             });
-//       }
-// });
-
 const getAllUsers = asyncHandler(async (req, res) => {
-  const { page = 1, search = "", Short = "" } = req.body;
-  const perPage = 10; // You can adjust this according to your requirements
-
-  // Build the query based on search and Short
-  const query = {
-    $and: [
-      {
-        $or: [{ first_name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }, { last_name: { $regex: search, $options: "i" } }],
-      },
-      { role: "student" }, // Condition added to fetch only students
-    ],
-  };
-
-  // Sorting based on Short field
-  let sortCriteria = {};
-  if (Short === "Review") {
-    sortCriteria = { review: -1 }; // Sort by review in descending order
-  } else if (Short === "watch_time") {
-    sortCriteria = { watch_time: -1 }; // Sort by watch_time in descending order
-  } else if (Short === "Subscribe") {
-    sortCriteria = { subscribe: -1 }; // Sort by subscribe in descending order
-  } else {
-    sortCriteria = { _id: -1 }; // Default sorting
-  }
-
   try {
-    const users = await User.find(query)
-      .sort(sortCriteria)
-      .skip((page - 1) * perPage)
-      .limit(perPage);
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
 
-    const totalCount = await User.countDocuments(query);
-    const totalPages = Math.ceil(totalCount / perPage);
+    const users = await User.find({ role: "student" }).skip(skip).limit(Number(limit));
 
-    // Map each user to an array of promises
+    const totalUsers = await User.countDocuments({ role: "student" });
+
     const transformedUsersPromises = users.map(async (user) => {
-      let transformedUser = { ...user.toObject() }; // Convert Mongoose document to plain JavaScript object
+      let transformedUser = { ...user.toObject() };
       if (transformedUser.pic) {
         const getSignedUrl_pic = await getSignedUrlS3(transformedUser.pic);
         transformedUser.pic = getSignedUrl_pic;
@@ -971,45 +846,13 @@ const getAllUsers = asyncHandler(async (req, res) => {
       return { user: transformedUser };
     });
 
-    // Execute all promises concurrently
     const transformedUsers = await Promise.all(transformedUsersPromises);
 
-    const paginationDetails = {
-      current_page: parseInt(page),
-      data: transformedUsers,
-      first_page_url: `${baseURL}api/users?page=1`,
-      from: (page - 1) * perPage + 1,
-      last_page: totalPages,
-      last_page_url: `${baseURL}api/users?page=${totalPages}`,
-      links: [
-        {
-          url: null,
-          label: "&laquo; Previous",
-          active: false,
-        },
-        {
-          url: `${baseURL}api/users?page=${page}`,
-          label: page.toString(),
-          active: true,
-        },
-        {
-          url: null,
-          label: "Next &raquo;",
-          active: false,
-        },
-      ],
-      next_page_url: null,
-      path: `${baseURL}api/users`,
-      per_page: perPage,
-      prev_page_url: null,
-      to: (page - 1) * perPage + transformedUsers.length,
-      total: totalCount,
-    };
-
     res.json({
-      Users: paginationDetails,
-      page: page.toString(),
-      total_rows: totalCount,
+      Users: transformedUsers,
+      total_rows: totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: Number(page),
     });
   } catch (error) {
     console.error(error);
@@ -1020,230 +863,76 @@ const getAllUsers = asyncHandler(async (req, res) => {
   }
 });
 
-// const getAllTeachers = asyncHandler(async (req, res) => {
-//   const { page = 1, search = "", Short = "" } = req.body;
-//   const perPage = 10; // You can adjust this according to your requirements
-
-//   // Build the query based on search and Short
-//   const query = {
-//     $and: [
-//       {
-//         $or: [{ first_name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }, { last_name: { $regex: search, $options: "i" } }],
-//       },
-//       { role: "teacher" }, // Condition added to fetch only students
-//     ],
-//   };
-
-//   // Sorting based on Short field
-//   let sortCriteria = {};
-//   if (Short === "Review") {
-//     sortCriteria = { review: -1 }; // Sort by review in descending order
-//   } else if (Short === "watch_time") {
-//     sortCriteria = { watch_time: -1 }; // Sort by watch_time in descending order
-//   } else if (Short === "Subscribe") {
-//     sortCriteria = { subscribe: -1 }; // Sort by subscribe in descending order
-//   } else {
-//     sortCriteria = { _id: -1 }; // Default sorting
-//   }
-
-//   try {
-//     const users = await User.find(query)
-//       .sort(sortCriteria)
-//       .skip((page - 1) * perPage)
-//       .limit(perPage)
-//       .populate({
-//         path: "payment_id",
-//       });
-
-//     const totalCount = await User.countDocuments(query);
-//     const totalPages = Math.ceil(totalCount / perPage);
-
-//     // Map each user to an array of promises
-//     const transformedUsersPromises = users.map(async (user) => {
-//       let transformedUser = { ...user.toObject() }; // Convert Mongoose document to plain JavaScript object
-//       if (transformedUser.pic) {
-//         const getSignedUrl_pic = await getSignedUrlS3(transformedUser.pic);
-//         transformedUser.pic = getSignedUrl_pic;
-//       }
-//       if (transformedUser.watch_time) {
-//         transformedUser.watch_time = convertSecondsToReadableTimeAdmin(transformedUser.watch_time);
-//       }
-//       return { user: transformedUser };
-//     });
-
-//     // Execute all promises concurrently
-//     const transformedUsers = await Promise.all(transformedUsersPromises);
-
-//     const paginationDetails = {
-//       current_page: parseInt(page),
-//       data: transformedUsers,
-//       first_page_url: `${baseURL}api/users?page=1`,
-//       from: (page - 1) * perPage + 1,
-//       last_page: totalPages,
-//       last_page_url: `${baseURL}api/users?page=${totalPages}`,
-//       links: [
-//         {
-//           url: null,
-//           label: "&laquo; Previous",
-//           active: false,
-//         },
-//         {
-//           url: `${baseURL}api/users?page=${page}`,
-//           label: page.toString(),
-//           active: true,
-//         },
-//         {
-//           url: null,
-//           label: "Next &raquo;",
-//           active: false,
-//         },
-//       ],
-//       next_page_url: null,
-//       path: `${baseURL}api/users`,
-//       per_page: perPage,
-//       prev_page_url: null,
-//       to: (page - 1) * perPage + transformedUsers.length,
-//       total: totalCount,
-//     };
-
-//     console.log(paginationDetails);
-
-//     res.json({
-//       Users: paginationDetails,
-//       page: page.toString(),
-//       total_rows: totalCount,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({
-//       message: "Internal Server Error",
-//       status: false,
-//     });
-//   }
-// });
-
 const getAllTeachers = asyncHandler(async (req, res) => {
-  const { page = 1, search = "", Short = "" } = req.body;
-  const perPage = 10; // You can adjust this according to your requirements
-
-  // Build the query based on search and Short
-  const query = {
-    $and: [
-      {
-        $or: [{ first_name: { $regex: search, $options: "i" } }, { email: { $regex: search, $options: "i" } }, { last_name: { $regex: search, $options: "i" } }],
-      },
-      { role: "teacher" }, // Condition added to fetch only teachers
-    ],
-  };
-
-  // Sorting based on Short field
-  let sortCriteria = {};
-  if (Short === "Review") {
-    sortCriteria = { review: -1 }; // Sort by review in descending order
-  } else if (Short === "watch_time") {
-    sortCriteria = { watch_time: -1 }; // Sort by watch_time in descending order
-  } else if (Short === "Subscribe") {
-    sortCriteria = { subscribe: -1 }; // Sort by subscribe in descending order
-  } else {
-    sortCriteria = { _id: -1 }; // Default sorting
-  }
-
   try {
-    const users = await User.find(query)
-      .sort(sortCriteria)
-      .skip((page - 1) * perPage)
-      .limit(perPage)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Search keyword from query params
+    const searchKeyword = req.query.search || "";
+
+    const query = {
+      role: "teacher",
+      $or: [{ first_name: { $regex: searchKeyword, $options: "i" } }, { last_name: { $regex: searchKeyword, $options: "i" } }],
+    };
+
+    const teachers = await User.find(query)
       .populate({
         path: "payment_id",
-      });
+      })
+      .skip(skip)
+      .limit(limit);
 
-    const totalCount = await User.countDocuments(query);
-    const totalPages = Math.ceil(totalCount / perPage);
+    const totalTeachers = await User.countDocuments(query);
 
-    // Map each user to an array of promises
-    const transformedUsersPromises = users.map(async (user) => {
-      let transformedUser = { ...user.toObject() }; // Convert Mongoose document to plain JavaScript object
-      if (transformedUser.pic) {
-        const getSignedUrl_pic = await getSignedUrlS3(transformedUser.pic);
-        transformedUser.pic = getSignedUrl_pic;
-      }
-      if (transformedUser.watch_time) {
-        transformedUser.watch_time = convertSecondsToReadableTimeAdmin(transformedUser.watch_time);
+    // Map each teacher to an array of promises
+    const transformedTeachersPromises = teachers.map(async (teacher) => {
+      let transformedTeacher = { ...teacher.toObject() }; // Convert Mongoose document to plain JavaScript object
+      if (transformedTeacher.watch_time) {
+        transformedTeacher.watch_time = convertSecondsToReadableTimeAdmin(transformedTeacher.watch_time);
       }
 
       // Determine the payment type dynamically based on payment_id
-      if (transformedUser.payment_id) {
+      if (transformedTeacher.payment_id) {
         let paymentType;
         let paymentAmount;
 
-        if (transformedUser.payment_id.advance !== undefined) {
+        if (transformedTeacher.payment_id.advance !== undefined) {
           paymentType = "advance";
-          paymentAmount = transformedUser.payment_id.advance;
-        } else if (transformedUser.payment_id.master !== undefined) {
+          paymentAmount = transformedTeacher.payment_id.advance;
+        } else if (transformedTeacher.payment_id.master !== undefined) {
           paymentType = "master";
-          paymentAmount = transformedUser.payment_id.master;
+          paymentAmount = transformedTeacher.payment_id.master;
         } else {
           // Handle case where neither advance nor master is defined
           paymentType = null;
           paymentAmount = null;
         }
 
-        transformedUser.payment = {
+        transformedTeacher.payment = {
           type: paymentType,
           amount: paymentAmount,
         };
-        delete transformedUser.payment_id; // Remove payment_id from the user object
+        delete transformedTeacher.payment_id; // Remove payment_id from the teacher object
       } else {
-        transformedUser.payment = {
+        transformedTeacher.payment = {
           type: null,
           amount: null,
         };
       }
 
-      return { user: transformedUser };
+      return { teacher: transformedTeacher };
     });
 
     // Execute all promises concurrently
-    const transformedUsers = await Promise.all(transformedUsersPromises);
-
-    const paginationDetails = {
-      current_page: parseInt(page),
-      data: transformedUsers,
-      first_page_url: `${baseURL}api/users?page=1`,
-      from: (page - 1) * perPage + 1,
-      last_page: totalPages,
-      last_page_url: `${baseURL}api/users?page=${totalPages}`,
-      links: [
-        {
-          url: null,
-          label: "&laquo; Previous",
-          active: false,
-        },
-        {
-          url: `${baseURL}api/users?page=${page}`,
-          label: page.toString(),
-          active: true,
-        },
-        {
-          url: null,
-          label: "Next &raquo;",
-          active: false,
-        },
-      ],
-      next_page_url: null,
-      path: `${baseURL}api/users`,
-      per_page: perPage,
-      prev_page_url: null,
-      to: (page - 1) * perPage + transformedUsers.length,
-      total: totalCount,
-    };
-
-    console.log(paginationDetails);
+    const transformedTeachers = await Promise.all(transformedTeachersPromises);
 
     res.json({
-      Users: paginationDetails,
-      page: page.toString(),
-      total_rows: totalCount,
+      Teachers: transformedTeachers,
+      total_rows: totalTeachers,
+      current_page: page,
+      total_pages: Math.ceil(totalTeachers / limit),
     });
   } catch (error) {
     console.error(error);
@@ -2119,35 +1808,18 @@ const Delete_DeleteSignedUrlS3 = asyncHandler(async (req, res) => {
 });
 
 const getAllCourse = asyncHandler(async (req, res) => {
-  const { page = 1, search = "", sort = "" } = req.body;
-  const perPage = 10; // You can adjust this according to your requirements
-
-  // Build the query based on search
-  const query = {
-    $or: [{ title: { $regex: search, $options: "i" } }],
-  };
-
-  // Sorting based on sort field
-  let sortCriteria = {};
-  if (sort === "startTime") {
-    sortCriteria = { startTime: -1 }; // Sort by startTime in descending order
-  } else if (sort === "endTime") {
-    sortCriteria = { endTime: -1 }; // Sort by endTime in descending order
-  } else {
-    sortCriteria = { _id: -1 }; // Default sorting
-  }
-
   try {
-    const courses = await Course.find(query)
-      .sort(sortCriteria)
-      .skip((page - 1) * perPage)
-      .limit(perPage)
+    const { page = 1, limit = 10 } = req.query;
+    console.log(req.query);
+
+    // Fetch courses with pagination
+    const courses = await Course.find()
       .populate("category_id")
-      .populate("teacher_id");
+      .populate("teacher_id")
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
 
-    const totalCount = await Course.countDocuments(query);
-    const totalPages = Math.ceil(totalCount / perPage);
-
+    // Transform the courses as per requirements
     const transformedCoursesPromises = courses.map(async (course) => {
       let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
 
@@ -2158,10 +1830,11 @@ const getAllCourse = asyncHandler(async (req, res) => {
         if (subCategory) {
           transformedCourse.category_name = category.category_name;
           transformedCourse.subcategory_name = subCategory.subcategory_name;
+          transformedCourse.category_image = category.category_image;
         }
       }
 
-      // Fetch startDate and endDate
+      // Format startDate and endDate
       transformedCourse.startDate = moment(course.startDate).format("YYYY/MM/DD");
       transformedCourse.endDate = moment(course.endDate).format("YYYY/MM/DD");
 
@@ -2174,6 +1847,7 @@ const getAllCourse = asyncHandler(async (req, res) => {
         title: transformedCourse.title,
         category_name: transformedCourse.category_name,
         subcategory_name: transformedCourse.subcategory_name,
+        category_image: transformedCourse.category_image,
         type: transformedCourse.type,
         startTime: transformedCourse.startTime,
         endTime: transformedCourse.endTime,
@@ -2188,42 +1862,13 @@ const getAllCourse = asyncHandler(async (req, res) => {
     // Execute all promises concurrently
     const transformedCourses = await Promise.all(transformedCoursesPromises);
 
-    const paginationDetails = {
-      current_page: parseInt(page),
-      data: transformedCourses,
-      first_page_url: `${baseURL}api/courses?page=1`,
-      from: (page - 1) * perPage + 1,
-      last_page: totalPages,
-      last_page_url: `${baseURL}api/courses?page=${totalPages}`,
-      links: [
-        {
-          url: null,
-          label: "&laquo; Previous",
-          active: false,
-        },
-        {
-          url: `${baseURL}api/courses?page=${page}`,
-          label: page.toString(),
-          active: true,
-        },
-        {
-          url: null,
-          label: "Next &raquo;",
-          active: false,
-        },
-      ],
-      next_page_url: null,
-      path: `${baseURL}api/courses`,
-      per_page: perPage,
-      prev_page_url: null,
-      to: (page - 1) * perPage + transformedCourses.length,
-      total: totalCount,
-    };
+    // Get total documents count
+    const total = await Course.countDocuments();
 
     res.json({
-      Courses: paginationDetails,
-      page: page.toString(),
-      total_rows: totalCount,
+      data: transformedCourses,
+      currentPage: parseInt(page),
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error(error);

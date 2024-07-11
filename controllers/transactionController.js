@@ -5,8 +5,14 @@ const Course = require("../models/course");
 const baseURL = process.env.BASE_URL;
 const { User } = require("../models/userModel.js");
 const { addNotification } = require("./teacherNotificationController");
+// const serviceAccount = require("../serviceAccountKey.json");
 
-const admin = require("firebase-admin"); // Import firebase-admin
+const admin = require("firebase-admin");
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount),
+//   databaseURL: "https://push-notification-6228d-default-rtdb.firebaseio.com",
+// });
+
 const sendFCMNotification = async (registrationToken, title, body) => {
   const message = {
     notification: {
