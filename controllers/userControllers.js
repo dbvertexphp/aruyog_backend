@@ -415,8 +415,8 @@ const authUser = asyncHandler(async (req, res) => {
     );
 
     const user = {
-      ...userdata._doc,
-      profile_pic: userdata.profile_pic ? `${req.protocol}://${req.get("host")}/${userdata.profile_pic}` : null,
+      ...userdata.toObject(),
+      profile_pic: userdata.profile_pic, // No base URL added here
     };
 
     res.json({
@@ -831,7 +831,6 @@ const getAllUsers = asyncHandler(async (req, res) => {
     const skip = (page - 1) * limit;
 
     const users = await User.find({ role: "student" }).skip(skip).limit(Number(limit));
-
     const totalUsers = await User.countDocuments({ role: "student" });
 
     const transformedUsersPromises = users.map(async (user) => {
@@ -1137,12 +1136,9 @@ const updateProfileDataByAdmin = asyncHandler(async (req, res) => {
 
 const getAllDashboardCount = asyncHandler(async (req, res) => {
   try {
-    const category = await Category.countDocuments(); // Assuming there is only one document
-    const user = await User.countDocuments();
-    const video = await Video.countDocuments();
-    const reels = await Reel.countDocuments();
-    const postTimeline = await PostTimeline.countDocuments();
-    const postJob = await PostJob.countDocuments();
+    const teacherCount = await User.countDocuments({ role: "teacher" });
+    const studentCount = await User.countDocuments({ role: "student" });
+    const courseCount = await Course.countDocuments();
     const adminnotifications = await AdminNotificationMessages.countDocuments({
       readstatus: false,
     }); // Counting only documents with readstatus false
@@ -1159,12 +1155,9 @@ const getAllDashboardCount = asyncHandler(async (req, res) => {
     const transactionTotalAmount = transactionAmountSum.length > 0 ? transactionAmountSum[0].totalAmount : 0;
 
     res.status(200).json({
-      category: category,
-      user: user,
-      video: video,
-      reels: reels,
-      PostTimeline: postTimeline,
-      PostJob: postJob,
+      teacherCount: teacherCount,
+      studentCount: studentCount,
+      courseCount: courseCount,
       adminnotifications: adminnotifications,
       transactionTotalAmount: transactionTotalAmount,
     });

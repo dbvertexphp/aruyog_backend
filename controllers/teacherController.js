@@ -15,6 +15,7 @@ const fs = require("fs");
 const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
 const moment = require("moment-business-days");
 const { log } = require("util");
+const TeacherPayment = require("../models/TeacherPaymentModel.js");
 
 dotenv.config();
 
@@ -144,6 +145,18 @@ const getTeacherProfileData = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    let paymentDetails = {};
+    if (user.payment_id) {
+      // Fetch payment details from TeacherPayment model
+      const payment = await TeacherPayment.findById(user.payment_id);
+      if (payment) {
+        paymentDetails = {
+          type: payment.advance ? "advance" : "master", // Determine type based on available fields
+          amount: payment.advance || payment.master,
+        };
+      }
+    }
+
     // Return the user's profile information
     return res.status(200).json({
       _id: user._id,
@@ -160,6 +173,7 @@ const getTeacherProfileData = asyncHandler(async (req, res) => {
       background_image: user.background_image,
       profile_pic: user.profile_pic,
       status: true,
+      payment: paymentDetails,
     });
   } catch (error) {
     console.error("Error fetching user profile:", error.message);
@@ -338,127 +352,18 @@ const updateCourseDates = asyncHandler(async (req, res) => {
 const getTodayCourse = asyncHandler(async (req, res) => {
   const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
   const currentDate = new Date(); // Get current date
+  const formattedCurrentDate = formatDate(currentDate); // Format date to YYYY-MM-DD
 
   try {
     // Find courses where startDate matches the current date and teacher_id matches
     const courses = await Course.find({
       teacher_id,
-      startDate: formatDate(currentDate), // Format current date to match stored
+      startDate: { $lte: formattedCurrentDate }, // Format current date to match stored
+      endDate: { $gte: formattedCurrentDate },
       userIds: { $ne: [] },
     })
       .sort({ startTime: -1 }) // Sort by startTime ascending order
       .exec();
-
-    if (!courses || courses.length === 0) {
-      return res.status(200).json({
-        message: "Course Not Found",
-        status: false,
-      });
-    }
-
-    res.status(200).json({ courses });
-  } catch (error) {
-    console.error("Error fetching today's courses:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-
-// Helper function to format date in YYYY/MM/DD format
-function formatDate(date) {
-  const d = new Date(date);
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${year}/${month}/${day}`;
-}
-
-// Helper function to calculate the start of the next month
-function getNextMonthStart(date) {
-  const d = new Date(date);
-  const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
-  return nextMonth;
-}
-
-// Function to calculate end date excluding weekends using date-fns
-const calculateEndDate = (startDate, daysToAdd) => {
-  let currentDay = new Date(startDate);
-  let count = 0;
-
-  while (count < daysToAdd) {
-    currentDay = addDays(currentDay, 1);
-
-    if (!isWeekend(currentDay)) {
-      count++;
-    }
-  }
-
-  return currentDay.toISOString().split("T")[0];
-};
-
-// const getTodayCourse = asyncHandler(async (req, res) => {
-//   const userId = req.headers.userID;
-//   const currentDateTime = moment().tz("Asia/Kolkata");
-//   const currentMonth = currentDateTime.format("MM");
-//   const currentYear = currentDateTime.format("YYYY");
-//   const currentDay = currentDateTime.format("DD");
-//   const currentTime = currentDateTime.format("hh:mm A");
-
-//   try {
-//     const courses = await Course.find({
-//       teacher_id: userId,
-//       startDate: {
-//         $gte: new Date(`${currentYear}/${currentMonth}/${currentDay}`),
-//         $lte: new Date(`${currentYear}/${currentMonth}/${currentDay}`),
-//       },
-//     });
-
-//     console.log(courses);
-//     if (!courses || courses.length === 0) {
-//       return res.status(200).json({
-//         message: "Course Not Found",
-//         status: false,
-//       });
-//     }
-
-//     const filteredCourses = courses.filter((course) => {
-//       const courseStartTime = moment(course.startTime, "hh:mm A");
-//       const currentTimeOnly = moment(currentTime, "hh:mm A");
-//       console.log("Course start time:", courseStartTime.format("hh:mm A"));
-//       console.log("Current time:", currentTimeOnly.format("hh:mm A"));
-//       return courseStartTime.isAfter(currentTimeOnly);
-//     });
-
-//     console.log("Filtered courses:", filteredCourses);
-
-//     res.json({
-//       course: filteredCourses,
-//       status: true,
-//     });
-//   } catch (error) {
-//     console.error("GetTodayCourse API error:", error.message);
-//     res.status(500).json({
-//       message: "Internal Server Error",
-//       status: false,
-//     });
-//   }
-// });
-
-const getMyClasses = asyncHandler(async (req, res) => {
-  const userId = req.headers.userID;
-  const currentDateTime = moment().tz("Asia/Kolkata");
-  const currentMonth = currentDateTime.format("MM");
-  const currentYear = currentDateTime.format("YYYY");
-  const currentTime = currentDateTime.format("hh:mm A");
-
-  try {
-    const courses = await Course.find({
-      teacher_id: userId,
-      startDate: {
-        $gte: `01-${currentMonth}-${currentYear}`,
-        $lte: `31-${currentMonth}-${currentYear}`,
-      },
-      userIds: { $not: { $size: 0 } },
-    });
 
     if (!courses || courses.length === 0) {
       return res.status(200).json({
@@ -492,22 +397,210 @@ const getMyClasses = asyncHandler(async (req, res) => {
     }, {});
 
     // Adding user details to each course
-    const coursesWithUsers = courses.map((course) => ({
-      ...course.toObject({ getters: true, virtuals: true }),
-      users: course.userIds.map((userId) => userMap[userId]),
-    }));
+    const coursesWithUsersAndDays = [];
+    for (let i = 0; i < courses.length; i++) {
+      const course = courses[i];
+      const daysArray = calculateDaysArray(course.startDate, course.endDate);
 
-    res.json({
-      courses: coursesWithUsers,
-      status: true,
-    });
+      const courseWithUsersAndDays = {
+        ...course.toObject({ getters: true, virtuals: true }),
+        users: course.userIds.map((userId) => userMap[userId]),
+        days: daysArray,
+      };
+
+      coursesWithUsersAndDays.push(courseWithUsersAndDays);
+    }
+
+    res.status(200).json({ courses: coursesWithUsersAndDays });
   } catch (error) {
-    console.error("GetTodayCourse API error:", error.message);
-    res.status(500).json({
-      message: "Internal Server Error",
-      status: false,
-    });
+    console.error("Error fetching today's courses:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+const getMyClasses = asyncHandler(async (req, res) => {
+  const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
+  const currentDate = new Date(); // Get current date
+  const formattedCurrentDate = formatDate(currentDate); // Format date to YYYY/MM/DD
+
+  try {
+    // Find courses where startDate matches the current date and teacher_id matches
+    const courses = await Course.find({
+      teacher_id,
+      startDate: { $lte: formattedCurrentDate }, // Format current date to match stored
+      endDate: { $gte: formattedCurrentDate },
+    })
+      .sort({ startTime: -1 }) // Sort by startTime descending order
+      .exec();
+
+    if (!courses || courses.length === 0) {
+      return res.status(200).json({
+        message: "Course Not Found",
+        status: false,
+      });
+    }
+
+    // Fetching only required fields from User collection
+    const userIds = courses.reduce((acc, course) => {
+      acc.push(...course.userIds);
+      return acc;
+    }, []);
+
+    const users = await User.find(
+      { _id: { $in: userIds } },
+      {
+        profile_pic: 1,
+        ConnectyCube_token: 1,
+        ConnectyCube_id: 1,
+        full_name: 1,
+        firebase_token: 1,
+      }
+    );
+
+    const userMap = users.reduce((acc, user) => {
+      acc[user._id] = user;
+      return acc;
+    }, {});
+
+    const coursesWithUsers = [];
+
+    // Iterate over each course to add users and calculate days array
+    for (let i = 0; i < courses.length; i++) {
+      const course = courses[i];
+
+      // Calculate days array between startDate and endDate
+      const daysArray = calculateDaysArray(course.startDate, course.endDate);
+
+      // Add user details to each course
+      const courseWithUsers = {
+        ...course.toObject({ getters: true, virtuals: true }),
+        users: course.userIds.map((userId) => userMap[userId]),
+        days: daysArray,
+      };
+
+      coursesWithUsers.push(courseWithUsers);
+    }
+
+    res.status(200).json({ courses: coursesWithUsers });
+  } catch (error) {
+    console.error("Error fetching today's courses:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+function calculateDaysArray(startDate, endDate) {
+  const daysArray = [];
+  let currentDate = new Date(startDate);
+  let daysCount = 0;
+
+  while (currentDate <= new Date(endDate) && daysCount < 21) {
+    if (!isWeekend(currentDate)) {
+      daysArray.push(formatDate(currentDate));
+      daysCount++;
+    }
+    currentDate = addDays(currentDate, 1);
+  }
+
+  return daysArray;
+}
+
+// Helper function to format date in YYYY/MM/DD format
+function formatDate(date) {
+  const d = new Date(date);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${year}/${month}/${day}`;
+}
+
+// Helper function to calculate the start of the next month
+function getNextMonthStart(date) {
+  const d = new Date(date);
+  const nextMonth = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  return nextMonth;
+}
+
+// Function to calculate end date excluding weekends using date-fns
+const calculateEndDate = (startDate, daysToAdd) => {
+  let currentDay = new Date(startDate);
+  let count = 0;
+
+  while (count < daysToAdd) {
+    currentDay = addDays(currentDay, 1);
+
+    if (!isWeekend(currentDay)) {
+      count++;
+    }
+  }
+
+  return currentDay.toISOString().split("T")[0];
+};
+
+// const getMyClasses = asyncHandler(async (req, res) => {
+//   const userId = req.headers.userID;
+//   const currentDateTime = moment().tz("Asia/Kolkata");
+//   const currentMonth = currentDateTime.format("MM");
+//   const currentYear = currentDateTime.format("YYYY");
+//   const currentTime = currentDateTime.format("hh:mm A");
+
+//   try {
+//     const courses = await Course.find({
+//       teacher_id: userId,
+//       startDate: {
+//         $gte: `01-${currentMonth}-${currentYear}`,
+//         $lte: `31-${currentMonth}-${currentYear}`,
+//       },
+//       userIds: { $not: { $size: 0 } },
+//     });
+
+//     if (!courses || courses.length === 0) {
+//       return res.status(200).json({
+//         message: "Course Not Found",
+//         status: false,
+//       });
+//     }
+
+//     // Extracting all userIds from courses
+//     const userIds = courses.reduce((acc, course) => {
+//       acc.push(...course.userIds);
+//       return acc;
+//     }, []);
+
+//     // Fetching only required fields from User collection
+//     const users = await User.find(
+//       { _id: { $in: userIds } },
+//       {
+//         profile_pic: 1,
+//         ConnectyCube_token: 1,
+//         ConnectyCube_id: 1,
+//         full_name: 1,
+//         firebase_token: 1,
+//       }
+//     );
+
+//     // Mapping userIds to user details for quick lookup
+//     const userMap = users.reduce((acc, user) => {
+//       acc[user._id] = user;
+//       return acc;
+//     }, {});
+
+//     // Adding user details to each course
+//     const coursesWithUsers = courses.map((course) => ({
+//       ...course.toObject({ getters: true, virtuals: true }),
+//       users: course.userIds.map((userId) => userMap[userId]),
+//     }));
+
+//     res.json({
+//       courses: coursesWithUsers,
+//       status: true,
+//     });
+//   } catch (error) {
+//     console.error("GetTodayCourse API error:", error.message);
+//     res.status(500).json({
+//       message: "Internal Server Error",
+//       status: false,
+//     });
+//   }
+// });
 
 module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates };

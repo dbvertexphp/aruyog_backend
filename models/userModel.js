@@ -21,13 +21,6 @@ const userSchema = mongoose.Schema({
   role: { type: String, required: true },
   otp: { type: String },
   otp_verified: { type: Number, default: 0 },
-  // review: { type: Number, default: 0 },
-  // watch_time: { type: Number, default: 0 },
-  // subscribe: { type: Number, default: 0 },
-  // interest: [{ type: String }],
-  // about_me: { type: String },
-  // Chat_Status: { type: String, default: "Offline" },
-  //   address: { type: String },
   firebase_token: { type: String, default: "dummy_token" },
   profile_pic: {
     type: String,
@@ -40,8 +33,6 @@ const userSchema = mongoose.Schema({
   },
   ConnectyCube_token: { type: String, default: null },
   ConnectyCube_id: { type: String, default: null },
-  // deleted: { type: Boolean, default: false },
-  // deleted_at: { type: Date, default: null },
   experience: { type: String },
   education: { type: String },
   languages: [{ type: String, max: 4 }], // Maximum 4 languages
@@ -56,12 +47,6 @@ const userSchema = mongoose.Schema({
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),
   },
 });
-
-// userSchema.post(["find", "findOne"], async function (result) {
-//   if (result && result.pic && typeof result.pic === "string") {
-//     result.pic = await getSignedUrlS3(result.pic);
-//   }
-// });
 
 const adminDashboardSchema = new mongoose.Schema({
   video_count: { type: Number, default: 0 },

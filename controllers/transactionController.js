@@ -14,16 +14,16 @@ const admin = require("firebase-admin");
 // });
 
 const sendFCMNotification = async (registrationToken, title, body) => {
-  const message = {
+  const messageSend = {
     notification: {
       title,
       body,
     },
-    token: registrationToken,
+    token: "dGchhHhPQSqFOij6uqATs8:APA91bH-zjpHyoCbmL91zZ5lXXivT1M9svdu7t2PtSMe29I5urVSBxJ696nBdPLJCj3POm2tIYl0IxyfXZLeYkn1aBDGZHBWLSsq2fL7GhtOrN9ekiywFnY1FS3mfDP_NZkBrpqgjOdY",
   };
 
   try {
-    const response = await admin.messaging().send(message);
+    const response = await admin.messaging().send(messageSend);
     return { success: true, response };
   } catch (error) {
     return { success: false, error };
@@ -45,12 +45,21 @@ const addTransaction = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
+    // Check if the user has already purchased the course
+    if (course.userIds.includes(user_id)) {
+      return res.status(400).json({
+        message: "You have already purchased this course",
+        status: false,
+      });
+    }
+
     // Check the type of course to determine maximum userIds allowed
     const maxUserIdsAllowed = course.type === "group_course" ? 3 : 1;
 
     if (course.userIds.length >= maxUserIdsAllowed) {
       return res.status(400).json({
         message: `Maximum capacity (${maxUserIdsAllowed}) reached for this course`,
+        status: false,
       });
     }
 

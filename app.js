@@ -32,6 +32,7 @@ const serviceAccount = require("./serviceAccountKey.json");
 const admin = require("firebase-admin");
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  projectId: "aruyog-41a39",
 });
 
 require("dotenv").config();

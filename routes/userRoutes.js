@@ -66,16 +66,52 @@ const { addTeacherPaymentStatus, getTeacherPaymentStatuses, calculatePayment, ge
 
 const userRoutes = express.Router();
 
+/*------------- Student/Teacher Both apis --------------------- */
 userRoutes.route("/register").post(registerUser);
 userRoutes.route("/login").post(authUser);
 userRoutes.route("/verifyOtp").post(verifyOtp);
 userRoutes.route("/resendOTP").post(resendOTP);
 userRoutes.route("/ForgetresendOTP").post(ForgetresendOTP);
 userRoutes.route("/forgetPassword").put(forgetPassword);
+userRoutes.route("/ChangePassword").put(protect, ChangePassword);
+userRoutes.route("/logoutUser").get(protect, logoutUser);
+
+/*------------- Student/Admin Both apis --------------------- */
+userRoutes.route("/getCoursesByUserId").get(protect, Authorization(["student"]), getCoursesByUserId);
+userRoutes.route("/getAllUsers").get(protect, Authorization(["student", "admin"]), getAllUsers);
+userRoutes.route("/updateStudentProfileData").post(protect, Authorization(["student"]), updateStudentProfileData);
+userRoutes.route("/addFavoriteTeacher").post(protect, Authorization(["student"]), addFavoriteTeacher);
+userRoutes.route("/removeFavoriteTeacher").post(protect, Authorization(["student"]), removeFavoriteTeacher);
+userRoutes.route("/getTeachersBySubcategory").post(protect, Authorization(["student"]), getTeachersBySubcategory);
+userRoutes.route("/getFavoriteTeachers").get(protect, Authorization(["student"]), getFavoriteTeachers);
+userRoutes.route("/addRating").post(protect, Authorization(["student"]), addRating);
+userRoutes.route("/getRatingsByTeacherId/:teacherId").get(protect, getRatingsByTeacherId);
+userRoutes.route("/addReview").post(protect, Authorization(["student"]), addReview);
+
+/*------------- Teacher/Admin Both apis --------------------- */
+userRoutes.route("/getAllTeachers").get(protect, Authorization(["teacher", "admin"]), getAllTeachers);
+userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, Authorization(["teacher"]), getTeacherAndCourseByTeacher_IdAndType);
+userRoutes.route("/addBankDetails").post(protect, Authorization(["teacher"]), bank_Detail_create);
+userRoutes.route("/getBankDetails").get(protect, Authorization(["teacher"]), getBankDetails);
+userRoutes.route("/getBankDetailsAdmin/:teacher_id").get(protect, Authorization(["teacher", "admin"]), getBankDetailsAdmin);
+userRoutes.route("/calculatePayment").post(protect, Authorization(["teacher"]), calculatePayment);
+
+/*------------- Admin apis --------------------- */
+userRoutes.route("/getTeacherPaymentStatuses").get(protect, Authorization(["admin"]), getTeacherPaymentStatuses);
+userRoutes.route("/getTeacherPaymentStatusById/:teacher_id").get(protect, Authorization(["admin"]), getTeacherPaymentStatusById);
+userRoutes.route("/addTeacherPaymentStatus").post(protect, Authorization(["admin"]), addTeacherPaymentStatus);
+userRoutes.route("/addMasterPayment").post(protect, Authorization(["admin"]), addMasterPayment);
+userRoutes.route("/updateMasterPayment").post(protect, Authorization(["admin"]), updateMasterPayment);
+userRoutes.route("/getStudentsPayment").get(protect, Authorization(["admin"]), getStudentsPayment);
+userRoutes.route("/getTotalAmount").get(protect, Authorization(["admin"]), getTotalAmount);
+userRoutes.route("/addAdvancePayment").post(protect, Authorization(["admin"]), addAdvancePayment);
+userRoutes.route("/updateAdvancePayment").post(protect, Authorization(["admin"]), updateAdvancePayment);
+userRoutes.route("/getMasterAndAdvancePayments").get(protect, Authorization(["admin"]), getMasterAndAdvancePayments);
+userRoutes.route("/updateUserPayment").put(protect, Authorization(["admin"]), updateUserPayment);
+userRoutes.route("/getAllCourse").get(protect, Authorization(["admin"]), getAllCourse);
+userRoutes.route("/getAllDashboardCount").get(protect, Authorization(["admin"]), getAllDashboardCount);
 
 // student protect route
-userRoutes.route("/ChangePassword").put(protect, Authorization(["student"]), ChangePassword);
-
 userRoutes.route("/ManullyListUpdate").get(ManullyListUpdate);
 userRoutes.route("/updateAllUsersFullName").get(updateAllUsersFullName);
 userRoutes.route("/getAllUsersWebsite").post(commonProtect, getAllUsersWebsite);
@@ -88,15 +124,12 @@ userRoutes.route("/Delete_DeleteSignedUrlS3").get(Delete_DeleteSignedUrlS3);
 
 userRoutes.route("/").get(protect, getUsers);
 
-userRoutes.route("/logoutUser").get(protect, logoutUser);
 userRoutes.route("/updateUserProfile").put(protect, updateProfileData);
 userRoutes.route("/searchUsers").post(protect, searchUsers);
 userRoutes.route("/UpdateMobileAdmin").post(protect, UpdateMobileAdmin);
 userRoutes.route("/profilePicUpload").put(protect, profilePicUpload);
 userRoutes.route("/UserAdminStatus").post(protect, UserAdminStatus);
-userRoutes.route("/updateStudentProfileData").post(protect, updateStudentProfileData);
 
-userRoutes.route("/addReview").post(protect, addReview);
 // userRoutes.route("/updateUserWatchTime").post(protect, updateUserWatchTime);
 userRoutes.route("/getReview/:id/:limit").get(getReview);
 userRoutes.route("/Watch_time_update").post(protect, Watch_time_update);
@@ -120,50 +153,11 @@ userRoutes.route("/getHireList").get(protect, getHireListByUserId);
 userRoutes.route("/getHireByMe").get(protect, getHireByMe);
 
 /*------------- Admin Routes --------------------- */
-userRoutes.route("/getAllUsers").get(getAllUsers);
-userRoutes.route("/getAllTeachers").get(getAllTeachers);
+
 userRoutes.route("/getAllHireList").post(protect, getAllHireList);
 userRoutes.route("/updateProfileDataByAdmin").post(protect, updateProfileDataByAdmin);
-userRoutes.route("/getAllDashboardCount").get(protect, getAllDashboardCount);
-userRoutes.route("/getAllCourse").get(getAllCourse);
 userRoutes.route("/getCoursesByTeacherId/:teacher_id").get(protect, getCoursesByTeacherId);
-
-/*------------- Update Payment --------------------- */
-userRoutes.route("/addMasterPayment").post(protect, addMasterPayment);
-userRoutes.route("/updateMasterPayment").post(protect, updateMasterPayment);
-userRoutes.route("/getStudentsPayment").get(protect, getStudentsPayment);
-userRoutes.route("/getTotalAmount").get(protect, getTotalAmount);
-
-userRoutes.route("/addAdvancePayment").post(protect, addAdvancePayment);
-userRoutes.route("/updateAdvancePayment").post(protect, updateAdvancePayment);
-userRoutes.route("/getMasterAndAdvancePayments").get(protect, getMasterAndAdvancePayments);
-
-userRoutes.route("/updateUserPayment").put(protect, updateUserPayment);
-userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, getTeacherAndCourseByTeacher_IdAndType);
-
-/*------------- Favorite Teacher --------------------- */
-userRoutes.route("/addFavoriteTeacher").post(protect, addFavoriteTeacher);
-userRoutes.route("/removeFavoriteTeacher").post(protect, removeFavoriteTeacher);
-userRoutes.route("/getTeachersBySubcategory").post(protect, getTeachersBySubcategory);
-userRoutes.route("/getFavoriteTeachers").get(protect, getFavoriteTeachers);
-
-/*------------- Rating Teacher --------------------- */
-userRoutes.route("/addRating").post(protect, addRating);
-userRoutes.route("/getRatingsByTeacherId/:teacherId").get(protect, getRatingsByTeacherId);
-
-/*------------- Courses APIs --------------------- */
-userRoutes.route("/getCoursesByUserId").get(protect, getCoursesByUserId);
-
-/*------------- Bank Details APIs --------------------- */
-userRoutes.route("/addBankDetails").post(protect, bank_Detail_create);
-userRoutes.route("/getBankDetails").get(protect, getBankDetails);
-userRoutes.route("/getBankDetailsAdmin/:teacher_id").get(protect, getBankDetailsAdmin);
 
 userRoutes.route("/getAllTeachersInAdmin").get(protect, getAllTeachersInAdmin);
 
-/*------------- addTeacherPaymentStatus --------------------- */
-userRoutes.route("/addTeacherPaymentStatus").post(protect, addTeacherPaymentStatus);
-userRoutes.route("/getTeacherPaymentStatuses").get(protect, getTeacherPaymentStatuses);
-userRoutes.route("/getTeacherPaymentStatusById/:teacher_id").get(protect, getTeacherPaymentStatusById);
-userRoutes.route("/calculatePayment").post(protect, calculatePayment);
 module.exports = { userRoutes };
