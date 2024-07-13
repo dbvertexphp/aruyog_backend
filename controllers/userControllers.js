@@ -70,92 +70,6 @@ const getUsers = asyncHandler(async (req, res) => {
   }
 });
 
-// const getUserView = asyncHandler(async (req, res) => {
-//       const user_id = req.params;
-
-//       try {
-//             // Fields jo query se exclude karna hai ko specify karein
-//             const excludedFields = [
-//                   "otp_verified",
-//                   "mobile",
-//                   "password",
-//                   "otp",
-//             ];
-
-//             // Exclude karne wale fields ke liye projection object banayein
-//             const projection = {};
-//             excludedFields.forEach((field) => {
-//                   projection[field] = 0;
-//             });
-
-//             // User ko user_id ke basis par find karein aur specified fields ko exclude karke select karein
-//             const user = await User.findById(user_id).select(projection);
-//             console.log(user);
-
-//             // Agar user nahi mila, toh User Not Found ka response bhejein
-//             if (!user) {
-//                   return res.status(200).json({
-//                         message: "User Not Found",
-//                         status: false,
-//                   });
-//             }
-
-//             // Friend_status ko "No" se set karein
-//             let Friend_status = "No";
-
-//             // Token header mein present hai ya nahi check karein
-//             const token = req.header("Authorization");
-//             if (token) {
-//                   // Check karein ki user ne current post ko like kiya hai ya nahi
-//                   const isFriend = await MyFriends.exists({
-//                         $or: [
-//                               { my_id: req.user._id, friends_id: user_id._id },
-//                               { my_id: user_id._id, friends_id: req.user._id },
-//                         ],
-//                   });
-
-//                   const isRequestPending = await MyFriends.exists({
-//                         my_id: user_id._id,
-//                         request_id: req.user._id,
-//                   });
-//                   const isRequestAccept = await MyFriends.exists({
-//                         my_id: req.user._id,
-//                         request_id: user_id._id,
-//                   });
-
-//                   // User ne post ko like kiya hai ya nahi, is par based Friend_status set karein
-//                   if (isFriend) {
-//                         Friend_status = "Yes";
-//                   } else if (isRequestPending) {
-//                         Friend_status = "Pending";
-//                   } else if (isRequestAccept) {
-//                         Friend_status = "Accept";
-//                   }
-//             }
-
-//             // User ke pic field mein BASE_URL append karein
-//             const updatedUser = {
-//                   Friend_status,
-//                   ...user._doc,
-//                   pic: user.pic,
-//                   watch_time: convertSecondsToReadableTime(user.watch_time),
-//             };
-
-//             // Response mein updatedUser aur status ka json bhejein
-//             res.json({
-//                   user: updatedUser,
-//                   status: true,
-//             });
-//       } catch (error) {
-//             // Agar koi error aaye toh usko console mein log karein aur Internal Server Error ka response bhejein
-//             console.error("GetUsers API error:", error.message);
-//             res.status(500).json({
-//                   message: "Internal Server Error",
-//                   status: false,
-//             });
-//       }
-// });
-
 const getUserView = asyncHandler(async (req, res) => {
   const user_id = req.params;
 
@@ -237,17 +151,17 @@ const getUserView = asyncHandler(async (req, res) => {
   }
 });
 
-const sendOTP = (mobile, name, otp) => {
-  // Ensure mobile number is in international format
-  const formattedMobile = `91${mobile}`; // Assuming country code is 91 (India)
+function sendOTP(name, mobile, otp) {
+  console.log(name);
+  console.log(mobile);
 
   const options = {
     method: "POST",
     hostname: "control.msg91.com",
     port: null,
-    path: `/api/v5/otp?template_id=667933e0d6fc0563602dae12&mobile=${formattedMobile}&authkey=418124AsbkkEdM65f1c681P1`,
+    path: `/api/v5/otp?template_id=${process.env.TEMPLATE_ID}&mobile=91${mobile}&authkey=${process.env.MSG91_API_KEY}&realTimeResponse=1`,
     headers: {
-      "Content-Type": "application/JSON",
+      "Content-Type": "application/json",
     },
   };
 
@@ -260,23 +174,18 @@ const sendOTP = (mobile, name, otp) => {
 
     res.on("end", function () {
       const body = Buffer.concat(chunks);
-      console.log("MSG91 Response:", body.toString());
+      console.log(body.toString());
     });
   });
 
-  req.on("error", (e) => {
-    console.error(`Problem with request: ${e.message}`);
-  });
-
-  const postData = JSON.stringify({
+  const payload = JSON.stringify({
     name: name,
-    otp: otp,
+    OTP: otp,
   });
 
-  console.log("Sending OTP:", postData);
-  req.write(postData);
+  req.write(payload);
   req.end();
-};
+}
 
 const registerUser = asyncHandler(async (req, res, next) => {
   req.uploadPath = "uploads/profiles";
@@ -328,10 +237,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
     });
 
     if (user) {
-      // Send OTP to user's mobile
-      // sendOTP(mobile, full_name, otp);
-
-      // Increment user_count in AdminDashboard
+      sendOTP(full_name, mobile, otp);
       try {
         const adminDashboard = await AdminDashboard.findOne();
         if (adminDashboard) {
@@ -382,6 +288,7 @@ const authUser = asyncHandler(async (req, res) => {
 
   if (userdata.otp_verified === 0) {
     const otp = generateOTP();
+    sendOTP(userdata.full_name, mobile, otp);
     await User.updateOne({ _id: userdata._id }, { $set: { otp } });
     // throw new ErrorHandler("OTP Not verified", 400);
     res.status(400).json({
@@ -504,7 +411,7 @@ const resendOTP = asyncHandler(async (req, res) => {
   const user = await User.findOne({ mobile });
 
   //   const type = "Resend";
-  //   TextLocalApi(type, user.first_name, mobile, newOTP);
+  sendOTP(user.first_name, mobile, newOTP);
   if (!user) {
     throw new ErrorHandler("User Not Found. ", 400);
   }
@@ -534,15 +441,14 @@ const ForgetresendOTP = asyncHandler(async (req, res) => {
   // Find the user by mobile number
   const user = await User.findOne({ mobile });
 
-  //   const type = "Forget_Password";
-  //   TextLocalApi(type, user.first_name, mobile, newOTP);
-  //   if (!user) {
-  //     res.status(200).json({
-  //       message: "User Not Found.",
-  //       status: false,
-  //     });
-  //     return;
-  //   }
+  sendOTP(user.first_name, mobile, newOTP);
+  if (!user) {
+    res.status(200).json({
+      message: "User Not Found.",
+      status: false,
+    });
+    return;
+  }
 
   const result = await User.updateOne({ _id: user._id }, { $set: { otp: newOTP } });
 
@@ -554,18 +460,6 @@ const ForgetresendOTP = asyncHandler(async (req, res) => {
     status: true,
   });
 });
-
-// Set up multer storage and file filter
-// const storage = multer.diskStorage({
-//   destination: function (req, file, cb) {
-//     cb(null, "uploads/profiles"); // Specify the directory where uploaded files will be stored
-//   },
-//   filename: function (req, file, cb) {
-//     cb(null, Date.now() + "-" + file.originalname); // Define the filename for the uploaded file
-//   },
-// });
-
-// const upload = multer({ storage: storage });
 
 const profilePicUpload = asyncHandler(async (req, res) => {
   // upload.single("profilePic")(req, res, async (err) => {
@@ -1647,33 +1541,37 @@ function generateOTP() {
   return otp.toString(); // Convert the number to a string
 }
 
-function TextLocalApi(type, name, mobile, otp) {
-  let message;
+// function TextLocalApi(name, mobile, otp) {
+//   console.log(name);
+//   console.log(mobile);
+//   const options = {
+//     method: "POST",
+//     hostname: "control.msg91.com",
+//     port: null,
+//     path: `/api/v5/otp?template_id=${process.env.TEMPLATE_ID}&mobile=91${mobile}&authkey=${process.env.MSG91_API_KEY}&realTimeResponse=1`,
+//     headers: {
+//       "Content-Type": "application/JSON",
+//     },
+//   };
 
-  if (type === "Signup") {
-    message = `Hello ${name}, welcome to Tobuu! Your OTP for account verification is: ${otp}. Enter this code to complete the process`;
-  } else if (type === "Resend") {
-    message = `Hello ${name}, your Tobuu account OTP is ${otp}. If you requested this resend, please use the following code to verify your account. If not, please ignore this message`;
-  } else if (type === "Forget_Password") {
-    message = `Hello ${name}, your Tobuu account verification code for password change is ${otp}. If you didn't request this, please ignore this message. If yes, use the code to change your password securely.`;
-  }
+//   const req = http.request(options, function (res) {
+//     const chunks = [];
 
-  const apiKey = process.env.TEXTLOCAL_API;
-  const sender = process.env.TEXTLOCAL_HEADER;
-  const number = mobile;
+//     res.on("data", function (chunk) {
+//       chunks.push(chunk);
+//     });
 
-  const url = `http://api.textlocal.in/send/?apiKey=${apiKey}&sender=${sender}&numbers=${number}&message=${encodeURIComponent(message)}`;
+//     res.on("end", function () {
+//       const body = Buffer.concat(chunks);
+//       console.log(body.toString());
+//     });
+//   });
 
-  const sendSms = async () => {
-    try {
-      const response = await axios.post(url);
-    } catch (error) {
-      console.error("error", error.message);
-    }
-  };
+//   req.write(`{\n  "name": ${name},\n   "OTP": ${otp},\n}`);
+//   console.log(req);
+//   req.end();
+// }
 
-  sendSms();
-}
 const getProfilePicUploadUrlS3 = asyncHandler(async (req, res) => {
   const user_id = req.user._id;
   const user = await User.findById(user_id);
@@ -2148,7 +2046,7 @@ const updateUserPayment = async (req, res, next) => {
 
 const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
   const { teacher_id, type } = req.body;
-
+  const user_id = req.headers.userID;
   try {
     // Find the teacher by ID and populate payment information
     const teacher = await User.findById(teacher_id).populate({
@@ -2173,9 +2071,13 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
       } else if (course.type === "single_course") {
         courseAvailable = course.userIds.length < 1 ? "available" : "full";
       }
+
+      // Check if the user has already taken a demo
+      const askDemo = course.askdemoid.includes(user_id);
       return {
         ...course.toObject(),
         courseAvailable,
+        askDemo,
       };
     });
 
@@ -2717,6 +2619,54 @@ function groupTransactionsByMonth(transactions) {
   return groupedTransactions;
 }
 
+const updateCourseWithDemoId = asyncHandler(async (req, res) => {
+  const user_id = req.headers.userID;
+  const { teacher_id, course_id } = req.body;
+
+  if (!teacher_id || !course_id || !user_id) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    const course = await Course.findById(course_id);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Check if the user has already taken a demo for this course
+    if (course.askdemoid.includes(user_id)) {
+      return res.status(400).json({
+        message: "You have already taken a demo for this course",
+        status: false,
+      });
+    }
+
+    // Check if the teacher is associated with the course
+    if (course.teacher_id.toString() !== teacher_id) {
+      return res.status(403).json({ message: "Teacher not authorized for this course" });
+    }
+
+    // Add user_id to askdemoid array if not already present
+    if (!course.askdemoid) {
+      course.askdemoid = [];
+    }
+
+    if (!course.askdemoid.includes(user_id)) {
+      course.askdemoid.push(user_id);
+      await course.save();
+    }
+
+    res.status(200).json({
+      message: "User ID added to askdemoid successfully",
+      course,
+    });
+  } catch (error) {
+    console.error("Error updating course:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 module.exports = {
   getUsers,
   registerUser,
@@ -2773,4 +2723,5 @@ module.exports = {
   getStudentsPayment,
   getTotalAmount,
   getAllTeachersInAdmin,
+  updateCourseWithDemoId,
 };

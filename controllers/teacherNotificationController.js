@@ -67,7 +67,7 @@ const getTeacherNotifications = asyncHandler(async (req, res) => {
 });
 
 const sendCourseNotification = asyncHandler(async (req, res) => {
-  const { course_id, attended_at } = req.body;
+  const { course_id, meeting_id, call_id, attended_at } = req.body;
   const teacher_id = req.headers.userID;
 
   try {
@@ -77,6 +77,12 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
+
+    // Update course details
+    course.meeting_id = meeting_id;
+    course.call_id = call_id;
+    course.start_meeting = true;
+    await course.save();
 
     // Fetch all users subscribed to the course
     const users = await User.find({ _id: { $in: course.userIds } });
@@ -119,9 +125,33 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
   }
 });
 
-const getMissingAttendanceDays = asyncHandler(async (req, res) => {
+const resetCourseMeeting = asyncHandler(async (req, res) => {
   const { course_id } = req.body;
   const teacher_id = req.headers.userID;
+
+  try {
+    // Find the course by course_id and teacher_id
+    const course = await Course.findById({ _id: course_id, teacher_id: teacher_id });
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Reset course details
+    course.meeting_id = null;
+    course.call_id = null;
+    course.start_meeting = false;
+    await course.save();
+
+    res.status(200).json({ message: "Course meeting details reset successfully", course });
+  } catch (error) {
+    console.error("Error resetting course meeting details:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+const getMissingAttendanceDays = asyncHandler(async (req, res) => {
+  const { course_id, teacher_id } = req.body;
 
   try {
     // Find the course by course_id and teacher_id
@@ -176,4 +206,5 @@ module.exports = {
   getTeacherNotifications,
   sendCourseNotification,
   getMissingAttendanceDays,
+  resetCourseMeeting,
 };

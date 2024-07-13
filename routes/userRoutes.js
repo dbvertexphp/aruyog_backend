@@ -55,6 +55,7 @@ const {
   getStudentsPayment,
   getTotalAmount,
   getAllTeachersInAdmin,
+  updateCourseWithDemoId,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -87,10 +88,11 @@ userRoutes.route("/getFavoriteTeachers").get(protect, Authorization(["student"])
 userRoutes.route("/addRating").post(protect, Authorization(["student"]), addRating);
 userRoutes.route("/getRatingsByTeacherId/:teacherId").get(protect, getRatingsByTeacherId);
 userRoutes.route("/addReview").post(protect, Authorization(["student"]), addReview);
+userRoutes.route("/updateCourseWithDemoId").post(protect, Authorization(["student"]), updateCourseWithDemoId);
 
 /*------------- Teacher/Admin Both apis --------------------- */
 userRoutes.route("/getAllTeachers").get(protect, Authorization(["teacher", "admin"]), getAllTeachers);
-userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, Authorization(["teacher"]), getTeacherAndCourseByTeacher_IdAndType);
+userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, Authorization(["student", "teacher"]), getTeacherAndCourseByTeacher_IdAndType);
 userRoutes.route("/addBankDetails").post(protect, Authorization(["teacher"]), bank_Detail_create);
 userRoutes.route("/getBankDetails").get(protect, Authorization(["teacher"]), getBankDetails);
 userRoutes.route("/getBankDetailsAdmin/:teacher_id").get(protect, Authorization(["teacher", "admin"]), getBankDetailsAdmin);

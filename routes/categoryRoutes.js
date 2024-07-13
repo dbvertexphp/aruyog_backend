@@ -7,7 +7,7 @@ const categoryRoutes = express.Router();
 
 categoryRoutes.route("/createCategory").post(protect, Authorization(["admin"]), Createcategory);
 categoryRoutes.route("/UpdateCategory").post(protect, Authorization(["admin"]), UpdateCategory);
-categoryRoutes.route("/GetAllCategories").get(protect, Authorization(["admin"]), GetAllCategories);
+categoryRoutes.route("/GetAllCategories").get(protect, GetAllCategories);
 categoryRoutes.route("/GetAllCategoriesAdmin").get(protect, Authorization(["admin"]), GetAllCategoriesAdmin);
 categoryRoutes.route("/GetAllCategoriesAdminpage").post(protect, Authorization(["admin"]), GetAllCategoriesAdminpage);
 categoryRoutes.route("/GetCategoryByName").post(protect, Authorization(["admin"]), GetSingleCategoryByName);

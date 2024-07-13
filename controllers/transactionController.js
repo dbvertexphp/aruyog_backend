@@ -19,7 +19,7 @@ const sendFCMNotification = async (registrationToken, title, body) => {
       title,
       body,
     },
-    token: "dGchhHhPQSqFOij6uqATs8:APA91bH-zjpHyoCbmL91zZ5lXXivT1M9svdu7t2PtSMe29I5urVSBxJ696nBdPLJCj3POm2tIYl0IxyfXZLeYkn1aBDGZHBWLSsq2fL7GhtOrN9ekiywFnY1FS3mfDP_NZkBrpqgjOdY",
+    token: "cUwKKwDsQriRkwjoTyLzB4:APA91bEtWToO1wSn2yXayoGchrPncnqDWElMCWRB4i12puavcXhFduWC_X5FWnHZkVHDkICNWlffzzaFpwJ85BBx6sBU1v0fgZ-pK4R6SK_vThe-NA2k0LUXMGcLnNvPJrz8ew7R6hll",
   };
 
   try {
