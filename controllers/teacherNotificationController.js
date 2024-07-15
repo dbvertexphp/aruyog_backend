@@ -10,7 +10,7 @@ const sendFCMNotification = async (registrationToken, title, body) => {
       title,
       body,
     },
-    token: registrationToken,
+    token: "cl37vCtvRUalL2WnWJaQwr:APA91bHcn1yO5w8t-pG5BlUdSqY8x-L7LAB_kO72b_N-MualOeCnLatq-jNoP23VSz4AGK8st_hnjY6X8i3QVJwZjgo4VgcBjB1sa0TLToKH-N5PFYBJ_aj1YxI4uuYziE0z4Ob0DOXx",
   };
 
   try {
@@ -91,6 +91,14 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "No users subscribed to this course" });
     }
 
+    // Decrease missingDays for the teacher
+    const teacher = await User.findOne({ _id: teacher_id });
+    console.log(teacher);
+    if (teacher) {
+      teacher.missingDays = Math.max(0, teacher.missingDays - 1); // Ensure it doesn't go below zero
+      await teacher.save();
+    }
+
     // Send notifications to each user
     const notificationPromises = users.map(async (user) => {
       if (user.firebase_token) {
@@ -142,6 +150,31 @@ const resetCourseMeeting = asyncHandler(async (req, res) => {
     course.call_id = null;
     course.start_meeting = false;
     await course.save();
+
+    // Fetch all users subscribed to the course
+    const users = await User.find({ _id: { $in: course.userIds } });
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users subscribed to this course" });
+    }
+
+    // Send notifications to each user
+    const notificationPromises = users.map(async (user) => {
+      if (user.firebase_token) {
+        const registrationToken = user.firebase_token;
+        const title = "New Course Notification";
+        const body = `A new course notification for ${course.title}`;
+        console.log(registrationToken);
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+      }
+    });
+
+    await Promise.all(notificationPromises);
 
     res.status(200).json({ message: "Course meeting details reset successfully", course });
   } catch (error) {

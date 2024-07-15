@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const colors = require("colors");
+const { User } = require("../models/userModel.js");
 
 const connectDB = async () => {
   try {

@@ -56,6 +56,7 @@ const {
   getTotalAmount,
   getAllTeachersInAdmin,
   updateCourseWithDemoId,
+  askForDemo,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -89,6 +90,7 @@ userRoutes.route("/addRating").post(protect, Authorization(["student"]), addRati
 userRoutes.route("/getRatingsByTeacherId/:teacherId").get(protect, getRatingsByTeacherId);
 userRoutes.route("/addReview").post(protect, Authorization(["student"]), addReview);
 userRoutes.route("/updateCourseWithDemoId").post(protect, Authorization(["student"]), updateCourseWithDemoId);
+userRoutes.route("/askForDemo").post(protect, Authorization(["student"]), askForDemo);
 
 /*------------- Teacher/Admin Both apis --------------------- */
 userRoutes.route("/getAllTeachers").get(protect, Authorization(["teacher", "admin"]), getAllTeachers);

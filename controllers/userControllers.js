@@ -34,6 +34,7 @@ const Favorite = require("../models/favorite.js");
 const Rating = require("../models/ratingModel.js");
 const fs = require("fs");
 const { startOfMonth, endOfMonth, addMonths, format, parse } = require("date-fns");
+const ConnectyCube = require("connectycube");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -390,10 +391,11 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
     // Retrieve the updated user document
     const updatedUser = await User.findById(user._id);
-
+    console.log(updatedUser);
+    const token = jwt.sign({ _id: updatedUser._id, role: updatedUser.role }, process.env.JWT_SECRET);
     res.json({
       user: updatedUser,
-      token: generateToken(updatedUser._id),
+      token: token,
       status: true,
     });
   } catch (error) {
@@ -603,41 +605,67 @@ const forgetPassword = asyncHandler(async (req, res) => {
   });
 });
 
-const ChangePassword = asyncHandler(async (req, res) => {
+const ChangePassword = asyncHandler(async (req, res, next) => {
   const { oldPassword, newPassword } = req.body;
+
   if (!oldPassword || !newPassword) {
-    throw new ErrorHandler("Please enter all the required fields.", 400);
+    return next(new ErrorHandler("Please enter all the required fields.", 400));
   }
+
   const userId = req.headers.userID; // Assuming you have user authentication middleware
 
   // Find the user by _id
   const user = await User.findById(userId);
+
   if (!user) {
-    throw new ErrorHandler("User Not Found.", 400);
+    return next(new ErrorHandler("User Not Found.", 400));
   }
 
   // Check if the provided old password matches the current password
   const isOldPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
+
   if (!isOldPasswordCorrect) {
-    throw new ErrorHandler("Incorrect old password.", 400);
+    return next(new ErrorHandler("Incorrect old password.", 400));
   }
 
   // Check if the new password is the same as the old one
   const isNewPasswordSameAsOld = await bcrypt.compare(newPassword, user.password);
+
   if (isNewPasswordSameAsOld) {
-    throw new ErrorHandler("New password must be different from the old password.", 400);
+    return next(new ErrorHandler("New password must be different from the old password.", 400));
   }
 
   // Hash the new password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-  const result = await User.updateOne({ _id: user._id }, { $set: { password: hashedPassword } });
+  // const userToUpdate = {
+  //   id: user.ConnectyCube_id, // Replace with the user's ConnectyCube ID
+  //   newPassword: newPassword, // Replace with the new password you want to set
+  // };
 
-  res.status(201).json({
-    message: "Password changed successfully.",
-    status: true,
-  });
+  // const userToUpdate = {
+  //   login: 1111111111,
+  //   full_name: "Suraj Verma",
+  //   // Add password and oldPassword properties for password update (if needed)
+  //   password: "123456" , // New password to set
+  //   oldPassword: "12345678", // Current password for verification
+  // };
+  // Update the user with the new password
+  await updatePassword(userToUpdate);
+
+  // Update the password in MongoDB
+  try {
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(201).json({
+      message: "Password changed successfully.",
+      status: true,
+    });
+  } catch (error) {
+    return next(new ErrorHandler("Failed to update password in MongoDB.", 500));
+  }
 });
 
 const bank_Detail_create = asyncHandler(async (req, res) => {
@@ -1541,37 +1569,6 @@ function generateOTP() {
   return otp.toString(); // Convert the number to a string
 }
 
-// function TextLocalApi(name, mobile, otp) {
-//   console.log(name);
-//   console.log(mobile);
-//   const options = {
-//     method: "POST",
-//     hostname: "control.msg91.com",
-//     port: null,
-//     path: `/api/v5/otp?template_id=${process.env.TEMPLATE_ID}&mobile=91${mobile}&authkey=${process.env.MSG91_API_KEY}&realTimeResponse=1`,
-//     headers: {
-//       "Content-Type": "application/JSON",
-//     },
-//   };
-
-//   const req = http.request(options, function (res) {
-//     const chunks = [];
-
-//     res.on("data", function (chunk) {
-//       chunks.push(chunk);
-//     });
-
-//     res.on("end", function () {
-//       const body = Buffer.concat(chunks);
-//       console.log(body.toString());
-//     });
-//   });
-
-//   req.write(`{\n  "name": ${name},\n   "OTP": ${otp},\n}`);
-//   console.log(req);
-//   req.end();
-// }
-
 const getProfilePicUploadUrlS3 = asyncHandler(async (req, res) => {
   const user_id = req.user._id;
   const user = await User.findById(user_id);
@@ -1583,46 +1580,6 @@ const getProfilePicUploadUrlS3 = asyncHandler(async (req, res) => {
     status: true,
   });
 });
-
-// const updateUserWatchTime = async (req, res) => {
-//   const userId = req.user._id;
-//   const newTime = req.body.time; // Assuming the new time is passed in the request body
-
-//   try {
-//     // Find the user by user_id to get the current watch_time
-//     const user = await User.findById(userId);
-
-//     if (!user) {
-//       return res.status(404).json({
-//         message: "User not found",
-//         status: false,
-//       });
-//     }
-
-//     // Get the current watch_time from the user object
-//     let currentWatchTime = user.watch_time || 0;
-
-//     // Convert the current watch_time and new time to numbers and add them
-//     currentWatchTime = Number(currentWatchTime) + Number(newTime);
-
-//     // Update the watch_time field in the User table
-//     await User.findByIdAndUpdate(userId, {
-//       watch_time: currentWatchTime,
-//     });
-
-//     return res.json({
-//       message: "Watch time updated successfully",
-//       status: true,
-//       watch_time: currentWatchTime,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({
-//       message: "Internal Server Error",
-//       status: false,
-//     });
-//   }
-// };
 
 const ManullyListUpdate = asyncHandler(async (req, res) => {
   try {
@@ -2250,46 +2207,6 @@ const getFavoriteTeachers = asyncHandler(async (req, res) => {
   }
 });
 
-// const getTeachersBySubcategory = asyncHandler(async (req, res) => {
-//   const { subcategory_id } = req.body;
-//   const user_id = req.headers.userID;
-
-//   if (!subcategory_id || !user_id) {
-//     return res.status(400).json({ message: "Invalid input" });
-//   }
-
-//   try {
-//     // Find courses with the given subcategory_id
-//     const courses = await Course.find({ sub_category_id: subcategory_id }).populate("teacher_id");
-
-//     if (!courses.length) {
-//       return res.status(404).json({ message: "No courses found for the given subcategory ID" });
-//     }
-
-//     // Extract unique teacher IDs
-//     const teacherIds = [...new Set(courses.map((course) => course.teacher_id._id.toString()))];
-
-//     // Find teacher details for these IDs and populate payment_id
-//     const teachers = await User.find({ _id: { $in: teacherIds } }).populate("payment_id");
-
-//     // Fetch the user's favorite teachers
-//     const favorite = await Favorite.findOne({ user_id });
-
-//     const favoriteTeacherIds = favorite ? favorite.teacher_ids.map((id) => id.toString()) : [];
-
-//     // Add favorite status to each teacher
-//     const teachersWithFavoriteStatus = teachers.map((teacher) => ({
-//       ...teacher.toObject(),
-//       favorite: favoriteTeacherIds.includes(teacher._id.toString()),
-//     }));
-
-//     res.status(200).json({ teachers: teachersWithFavoriteStatus });
-//   } catch (error) {
-//     console.error("Error fetching teachers:", error.message);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// });
-
 const getTeachersBySubcategory = asyncHandler(async (req, res) => {
   const { subcategory_id } = req.body;
   const user_id = req.headers.userID;
@@ -2407,6 +2324,10 @@ const getCoursesByUserId = asyncHandler(async (req, res) => {
             user_id,
           });
 
+          // Fetch the user details based on userIds
+          const userIds = course.userIds || [];
+          const users = await User.find({ _id: { $in: userIds } }).select("firebase_token email profile_pic ConnectyCube_token ConnectyCube_id full_name");
+
           return {
             ...course.toObject(),
             teacher: {
@@ -2415,6 +2336,8 @@ const getCoursesByUserId = asyncHandler(async (req, res) => {
               userHasRated: !!userRating,
               userRating: userRating ? userRating.rating : null,
             },
+            users,
+            purchaseDate: transaction.datetime,
           };
         }
 
@@ -2667,6 +2590,54 @@ const updateCourseWithDemoId = asyncHandler(async (req, res) => {
   }
 });
 
+const askForDemo = asyncHandler(async (req, res) => {
+  const user_id = req.headers.userID;
+  console.log(user_id);
+  const { course_id, type } = req.body;
+
+  if (!user_id || !course_id || !type) {
+    return res.status(400).json({ message: "Invalid input" });
+  }
+
+  try {
+    const course = await Course.findById(course_id);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Check if the user has already purchased the course
+    if (course.askDemoids.includes(user_id) && course.completeAskDemoids.includes(user_id)) {
+      return res.status(400).json({
+        message: "You have already Demo this course",
+        status: false,
+      });
+    }
+
+    if (type == "askDemoids") {
+      if (!course.askDemoids.includes(user_id)) {
+        // Update Course with userId if not already included
+        course.askDemoids.push(user_id);
+        await course.save();
+      }
+    } else if (type == "completeAskDemoids") {
+      if (!course.completeAskDemoids.includes(user_id)) {
+        // Update Course with userId if not already included
+        course.completeAskDemoids.push(user_id);
+        await course.save();
+      }
+    }
+
+    res.status(201).json({
+      message: "Demo added successfully",
+      course: course,
+    });
+  } catch (error) {
+    console.error("Error adding Demo:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 module.exports = {
   getUsers,
   registerUser,
@@ -2724,4 +2695,5 @@ module.exports = {
   getTotalAmount,
   getAllTeachersInAdmin,
   updateCourseWithDemoId,
+  askForDemo,
 };

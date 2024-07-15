@@ -49,7 +49,22 @@ const courseSchema = new Schema(
         message: "Course cannot have more than 3 users",
       },
     },
-
+    askDemoids: {
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+    },
+    completeAskDemoids: {
+      type: [
+        {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+        },
+      ],
+    },
     askdemoid: {
       type: [
         {
