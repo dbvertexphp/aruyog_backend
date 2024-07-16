@@ -5,30 +5,7 @@ const Course = require("../models/course");
 const baseURL = process.env.BASE_URL;
 const { User } = require("../models/userModel.js");
 const { addNotification } = require("./teacherNotificationController");
-// const serviceAccount = require("../serviceAccountKey.json");
-
-const admin = require("firebase-admin");
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-//   databaseURL: "https://push-notification-6228d-default-rtdb.firebaseio.com",
-// });
-
-const sendFCMNotification = async (registrationToken, title, body) => {
-  const messageSend = {
-    notification: {
-      title,
-      body,
-    },
-    token: registrationToken,
-  };
-
-  try {
-    const response = await admin.messaging().send(messageSend);
-    return { success: true, response };
-  } catch (error) {
-    return { success: false, error };
-  }
-};
+const { sendFCMNotification } = require("./notificationControllers");
 
 const addTransaction = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
@@ -83,7 +60,7 @@ const addTransaction = asyncHandler(async (req, res) => {
 
     // Send notification to teacher
     const teacher = await User.findById(teacher_id);
-
+    console.log(teacher);
     if (teacher && teacher.firebase_token) {
       const registrationToken = teacher.firebase_token;
       const title = "New Course Purchase";
@@ -96,6 +73,7 @@ const addTransaction = asyncHandler(async (req, res) => {
         console.error("Failed to send notification:", notificationResult.error);
       }
     }
+    // const adminUser = await User.findOne({ role: "admin" });
 
     // if (adminUser && adminUser.firebase_token) {
     //   const registrationToken = adminUser.firebase_token;

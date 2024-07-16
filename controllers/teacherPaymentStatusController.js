@@ -3,24 +3,7 @@ const TeacherPaymentStatus = require("../models/teacherPaymentStatusModel");
 const { User } = require("../models/userModel");
 const Transaction = require("../models/transactionModel");
 const { startOfMonth, endOfMonth, subMonths, parse, format, isWithinInterval } = require("date-fns");
-const admin = require("firebase-admin"); // Import firebase-admin
-
-const sendFCMNotification = async (registrationToken, title, body) => {
-  const message = {
-    notification: {
-      title,
-      body,
-    },
-    token: registrationToken,
-  };
-
-  try {
-    const response = await admin.messaging().send(message);
-    return { success: true, response };
-  } catch (error) {
-    return { success: false, error };
-  }
-};
+const { sendFCMNotification } = require("./notificationControllers");
 
 const addTeacherPaymentStatus = asyncHandler(async (req, res) => {
   const { teacher_id, amount, payment_datetime, remark } = req.body;

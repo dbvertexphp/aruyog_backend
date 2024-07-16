@@ -1,29 +1,28 @@
 const admin = require("firebase-admin");
-// const serviceAccount = require("../serviceAccountKey.json");
+const serviceAccount = require("../serviceAccountKey.json");
 const { NotificationMessages, WebNotification, User } = require("../models/userModel.js");
 const { AdminNotificationMessages } = require("../models/adminnotificationsmodel.js");
 const asyncHandler = require("express-async-handler");
 const moment = require("moment-timezone");
 const baseURL = process.env.BASE_URL;
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount),
-// });
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
-const sendFCMNotification = (registrationToken, title, body, imageUrl, url) => {
+const sendFCMNotification = async (registrationToken, title, body) => {
   const message = {
     notification: {
       title,
       body,
-      image: imageUrl, // Add the image URL here
-    },
-    data: {
-      // Add data payload here
-      url: url, // Dynamic URL to be sent with the notification
     },
     token: registrationToken,
   };
-
-  return admin.messaging().send(message);
+  try {
+    const response = await admin.messaging().send(message);
+    return { success: true, response };
+  } catch (error) {
+    return { success: false, error };
+  }
 };
 
 const createNotification = async (sender_id, receiver_id, message, type, data = null) => {
@@ -213,4 +212,5 @@ module.exports = {
   createNotification,
   createNotificationAdmin,
   chatNotification,
+  sendFCMNotification,
 };
