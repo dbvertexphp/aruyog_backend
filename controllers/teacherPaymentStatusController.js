@@ -97,7 +97,7 @@ const getTeacherPaymentStatuses = asyncHandler(async (req, res) => {
     const query = { role: "teacher" }; // Condition added to fetch only teachers
 
     // Fetch users with minimal fields
-    const users = await User.find(query, "full_name email mobile profile_pic");
+    const users = await User.find(query, "full_name email mobile profile_pic missingDays");
 
     // Map each user to an array of promises
     const transformedUsersPromises = users.map(async (user) => {
@@ -129,7 +129,7 @@ const getTeacherPaymentStatuses = asyncHandler(async (req, res) => {
         payment_datetime = paymentStatus.payment_datetime;
         amount = paymentStatus.amount;
       }
-
+      console.log(user);
       return {
         teacher_id: user._id,
         full_name: user.full_name,

@@ -75,8 +75,8 @@ userRoutes.route("/verifyOtp").post(verifyOtp);
 userRoutes.route("/resendOTP").post(resendOTP);
 userRoutes.route("/ForgetresendOTP").post(ForgetresendOTP);
 userRoutes.route("/forgetPassword").put(forgetPassword);
-userRoutes.route("/ChangePassword").put(protect, ChangePassword);
-userRoutes.route("/logoutUser").get(protect, logoutUser);
+userRoutes.route("/ChangePassword").put(ChangePassword);
+userRoutes.route("/logoutUser").get(logoutUser);
 
 /*------------- Student/Admin Both apis --------------------- */
 userRoutes.route("/getCoursesByUserId").get(protect, Authorization(["student"]), getCoursesByUserId);

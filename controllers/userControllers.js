@@ -652,7 +652,7 @@ const ChangePassword = asyncHandler(async (req, res, next) => {
   //   oldPassword: "12345678", // Current password for verification
   // };
   // Update the user with the new password
-  await updatePassword(userToUpdate);
+  // await updatePassword(userToUpdate);
 
   // Update the password in MongoDB
   try {
@@ -789,6 +789,7 @@ const getAllTeachers = asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const user_id = req.headers.userID;
 
     // Search keyword from query params
     const searchKeyword = req.query.search || "";
@@ -806,6 +807,11 @@ const getAllTeachers = asyncHandler(async (req, res) => {
       .limit(limit);
 
     const totalTeachers = await User.countDocuments(query);
+
+    // Fetch the user's favorite teachers
+    const favorite = await Favorite.findOne({ user_id });
+
+    const favoriteTeacherIds = favorite ? favorite.teacher_ids.map((id) => id.toString()) : [];
 
     // Map each teacher to an array of promises
     const transformedTeachersPromises = teachers.map(async (teacher) => {
@@ -2020,6 +2026,35 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
       type: type,
     });
 
+    if (!courses || courses.length === 0) {
+      return res.status(200).json({
+        message: "Course Not Found",
+        status: false,
+      });
+    }
+
+    // Fetch user information for each course
+    const userIds = courses.reduce((acc, course) => {
+      acc.push(...course.userIds);
+      return acc;
+    }, []);
+
+    const users = await User.find(
+      { _id: { $in: userIds } },
+      {
+        profile_pic: 1,
+        ConnectyCube_token: 1,
+        ConnectyCube_id: 1,
+        full_name: 1,
+        firebase_token: 1,
+      }
+    );
+
+    const userMap = users.reduce((acc, user) => {
+      acc[user._id] = user;
+      return acc;
+    }, {});
+
     // Check course availability
     const coursesWithAvailability = courses.map((course) => {
       let courseAvailable;
@@ -2034,6 +2069,7 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
       return {
         ...course.toObject(),
         courseAvailable,
+        users: course.userIds.map((userId) => userMap[userId]),
         askDemo,
       };
     });
