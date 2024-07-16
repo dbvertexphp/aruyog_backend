@@ -19,7 +19,7 @@ const sendFCMNotification = async (registrationToken, title, body) => {
       title,
       body,
     },
-    token: "cUwKKwDsQriRkwjoTyLzB4:APA91bEtWToO1wSn2yXayoGchrPncnqDWElMCWRB4i12puavcXhFduWC_X5FWnHZkVHDkICNWlffzzaFpwJ85BBx6sBU1v0fgZ-pK4R6SK_vThe-NA2k0LUXMGcLnNvPJrz8ew7R6hll",
+    token: registrationToken,
   };
 
   try {
@@ -97,22 +97,23 @@ const addTransaction = asyncHandler(async (req, res) => {
       }
     }
 
-    // if (adminUser && adminUser.firebase_token ) {
-    //   const adminMessage = {
-    //     notification: {
-    //       title: "New Transaction",
-    //       body: `A new transaction has been made for course ${course.title}`,
-    //     },
-    //     token: adminUser.firebase_token,
-    //   };
+    if (adminUser && adminUser.firebase_token) {
+      const registrationToken = adminUser.firebase_token;
+      const title = "New Course Purchase";
+      const body = `A new transaction has been made for the course: ${course.title}.`;
+      console.log(registrationToken);
+      const notificationResult = await sendFCMNotification(registrationToken, title, body);
+      if (notificationResult.success) {
+        console.log("Notification sent successfully:", notificationResult.response);
+      } else {
+        console.error("Failed to send notification:", notificationResult.error);
+      }
+    }
 
-    //   await admin.messaging().send(adminMessage);
-    // }
-
-    // // Add notification to the admin's notification collection
-    // if (adminUser) {
-    //   await addNotification(user_id, adminUser._id, "New Transaction", course.title, amount);
-    // }
+    // Add notification to the admin's notification collection
+    if (adminUser) {
+      await addNotification(user_id, adminUser._id, "New Transaction", course.title, amount);
+    }
 
     // Add notification to the teacher's notification collection
     await addNotification(user_id, teacher_id, "New Transaction", course.title, amount);

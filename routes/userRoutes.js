@@ -93,7 +93,7 @@ userRoutes.route("/updateCourseWithDemoId").post(protect, Authorization(["studen
 userRoutes.route("/askForDemo").post(protect, Authorization(["student"]), askForDemo);
 
 /*------------- Teacher/Admin Both apis --------------------- */
-userRoutes.route("/getAllTeachers").get(protect, Authorization(["teacher", "admin"]), getAllTeachers);
+userRoutes.route("/getAllTeachers").get(protect, getAllTeachers);
 userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, Authorization(["student", "teacher"]), getTeacherAndCourseByTeacher_IdAndType);
 userRoutes.route("/addBankDetails").post(protect, Authorization(["teacher"]), bank_Detail_create);
 userRoutes.route("/getBankDetails").get(protect, Authorization(["teacher"]), getBankDetails);

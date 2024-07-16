@@ -42,7 +42,7 @@ const userSchema = mongoose.Schema({
   ratingCount: { type: Number, default: 0 },
   payment_id: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "TeacherPayment" },
   firebase_token: { type: String, default: null },
-  missingDays: { type: Number, default: 21 },
+  missingDays: { type: Number, default: 21, required: true },
   datetime: {
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),

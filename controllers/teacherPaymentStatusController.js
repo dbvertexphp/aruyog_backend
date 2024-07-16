@@ -136,6 +136,7 @@ const getTeacherPaymentStatuses = asyncHandler(async (req, res) => {
         email: user.email,
         mobile: user.mobile,
         profile_pic: user.profile_pic,
+        missingDays: user.missingDays,
         totalAmount,
         totalPaidAmount,
         amount,

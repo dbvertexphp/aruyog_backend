@@ -10,7 +10,7 @@ const sendFCMNotification = async (registrationToken, title, body) => {
       title,
       body,
     },
-    token: "cl37vCtvRUalL2WnWJaQwr:APA91bHcn1yO5w8t-pG5BlUdSqY8x-L7LAB_kO72b_N-MualOeCnLatq-jNoP23VSz4AGK8st_hnjY6X8i3QVJwZjgo4VgcBjB1sa0TLToKH-N5PFYBJ_aj1YxI4uuYziE0z4Ob0DOXx",
+    token: registrationToken,
   };
 
   try {

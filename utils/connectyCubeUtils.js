@@ -21,7 +21,7 @@ async function createConnectyCubeUser(mobile, password, email, full_name, role) 
     const session = await ConnectyCube.createSession();
     const userProfile = {
       login: mobile,
-      password,
+      password: mobile,
       email,
       full_name,
       phone: mobile,
