@@ -2052,6 +2052,7 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
         courseAvailable,
         users: course.userIds.map((userId) => userMap[userId]),
         askDemo,
+        course_image: course.course_image,
       };
     });
 
@@ -2295,74 +2296,73 @@ const getCoursesByUserId = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "Invalid input" });
   }
 
-  let query = { user_id };
+  let courseQuery = {
+    $or: [{ userIds: user_id }, { askDemoids: user_id }],
+  };
 
   if (sub_category_id) {
-    query["sub_category_id"] = sub_category_id;
+    courseQuery["sub_category_id"] = sub_category_id;
   }
 
   try {
-    const transactions = await Transaction.find(query)
+    // Find courses based on the user and sub-category conditions
+    const courses = await Course.find(courseQuery)
       .populate({
-        path: "course_id",
-        model: "Course",
-        populate: [
-          {
-            path: "teacher_id",
-            model: "User",
-            select: "full_name profile_pic",
-          },
-        ],
+        path: "teacher_id",
+        model: "User",
+        select: "full_name profile_pic",
       })
       .exec();
 
-    if (!transactions.length) {
+    if (!courses.length) {
       return res.status(404).json({
         message: "No courses found for the given user ID and sub-category ID",
       });
     }
 
-    const coursesWithTeacherDetails = await Promise.all(
-      transactions.map(async (transaction) => {
-        const course = transaction.course_id;
+    // Find transactions for the user to get purchase dates
+    const transactions = await Transaction.find({ user_id }).exec();
 
-        if (course && course.teacher_id) {
-          const teacher = course.teacher_id;
+    const coursesWithDetails = await Promise.all(
+      courses.map(async (course) => {
+        const teacher = course.teacher_id;
 
-          // Fetch the teacher's ratings
-          const ratings = await Rating.find({ teacher_id: teacher._id });
+        // Fetch the teacher's ratings
+        const ratings = await Rating.find({ teacher_id: teacher._id });
 
-          // Calculate the average rating
-          const averageRating = ratings.length ? ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length : 0;
+        // Calculate the average rating
+        const averageRating = ratings.length ? ratings.reduce((acc, curr) => acc + curr.rating, 0) / ratings.length : 0;
 
-          // Check if the user has rated this teacher
-          const userRating = await Rating.findOne({
-            teacher_id: teacher._id,
-            user_id,
-          });
+        // Check if the user has rated this teacher
+        const userRating = await Rating.findOne({
+          teacher_id: teacher._id,
+          user_id,
+        });
 
-          // Fetch the user details based on userIds
-          const userIds = course.userIds || [];
-          const users = await User.find({ _id: { $in: userIds } }).select("firebase_token email profile_pic ConnectyCube_token ConnectyCube_id full_name");
+        // Fetch the user details based on userIds
+        const userIds = course.userIds || [];
+        const users = await User.find({ _id: { $in: userIds } }).select("firebase_token email profile_pic ConnectyCube_token ConnectyCube_id full_name");
 
-          return {
-            ...course.toObject(),
-            teacher: {
-              ...teacher.toObject(),
-              averageRating,
-              userHasRated: !!userRating,
-              userRating: userRating ? userRating.rating : null,
-            },
-            users,
-            purchaseDate: transaction.datetime,
-          };
-        }
+        // Find the purchase date from the transactions
+        const transaction = transactions.find((trans) => trans.course_id.equals(course._id));
+        const purchaseDate = transaction ? transaction.datetime : null;
 
-        return course;
+        return {
+          ...course.toObject(),
+          teacher: {
+            ...teacher.toObject(),
+            averageRating,
+            userHasRated: !!userRating,
+            userRating: userRating ? userRating.rating : null,
+          },
+          users,
+          purchaseDate,
+          course_image: course.course_image,
+        };
       })
     );
 
-    res.status(200).json({ courses: coursesWithTeacherDetails });
+    res.status(200).json({ courses: coursesWithDetails });
   } catch (error) {
     console.error("Error fetching courses:", error.message);
     res.status(500).json({ message: "Internal Server Error" });

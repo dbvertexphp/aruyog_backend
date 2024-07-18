@@ -193,104 +193,110 @@ function deleteFile(filePath) {
 }
 
 const addCourse = asyncHandler(async (req, res) => {
-  const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
-  const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
-
-  try {
-    // Validate required fields
-    if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime || !startDate) {
-      return res.status(400).json({
-        error: "All fields (title, category_id, sub_category_id, type, startTime, endTime, startDate) are required.",
-      });
+  req.uploadPath = "uploads/course";
+  upload.single("course_image")(req, res, async (err) => {
+    if (err) {
+      return next(new ErrorHandler(err.message, 400));
     }
+    const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
+    const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
 
-    // Validate and parse startDate
-    const parsedStartDate = new Date(startDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
-    if (isNaN(parsedStartDate.getTime())) {
-      return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
-    }
-
-    // Calculate start and end of the month based on startDate
-    const startOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), 1);
-    const endOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, 0);
-
-    // Check if the teacher has already added 6 courses this month
-    const coursesCount = await Course.countDocuments({
-      teacher_id,
-      startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Count documents within the current month
-    });
-
-    console.log(coursesCount);
-
-    if (coursesCount >= 6) {
-      const nextMonthStart = getNextMonthStart(parsedStartDate);
-      return res.status(400).json({
-        error: `Teacher cannot add more than 6 courses in a month. Next available date to add courses: ${formatDate(nextMonthStart)}.`,
-      });
-    }
-
-    // Check if the course types are valid for the current month
-    const courses = await Course.find({
-      teacher_id,
-      startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Only consider courses in the current month
-    });
-
-    let groupCourseCount = 0;
-    let singleCourseCount = 0;
-
-    courses.forEach((course) => {
-      if (course.type === "group_course") {
-        groupCourseCount++;
-      } else if (course.type === "single_course") {
-        singleCourseCount++;
+    try {
+      // Validate required fields
+      if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime || !startDate) {
+        return res.status(400).json({
+          error: "All fields (title, category_id, sub_category_id, type, startTime, endTime, startDate) are required.",
+        });
       }
-    });
 
-    console.log(groupCourseCount);
-    console.log(singleCourseCount);
+      // Validate and parse startDate
+      const parsedStartDate = new Date(startDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
+      if (isNaN(parsedStartDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
+      }
 
-    // Check if the teacher can add more of the requested type
-    if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
-      return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
+      // Calculate start and end of the month based on startDate
+      const startOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), 1);
+      const endOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, 0);
+
+      // Check if the teacher has already added 6 courses this month
+      const coursesCount = await Course.countDocuments({
+        teacher_id,
+        startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Count documents within the current month
+      });
+
+      if (coursesCount >= 6) {
+        const nextMonthStart = getNextMonthStart(parsedStartDate);
+        return res.status(400).json({
+          error: `Teacher cannot add more than 6 courses in a month. Next available date to add courses: ${formatDate(nextMonthStart)}.`,
+        });
+      }
+
+      // Check if the course types are valid for the current month
+      const courses = await Course.find({
+        teacher_id,
+        startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Only consider courses in the current month
+      });
+
+      let groupCourseCount = 0;
+      let singleCourseCount = 0;
+
+      courses.forEach((course) => {
+        if (course.type === "group_course") {
+          groupCourseCount++;
+        } else if (course.type === "single_course") {
+          singleCourseCount++;
+        }
+      });
+
+      // Check if the teacher can add more of the requested type
+      if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
+        return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
+      }
+
+      // Calculate end date excluding weekends
+      const endDate = calculateEndDate(startDate, 21); // Excluding weekends
+      const formattedStartDate = formatDate(startDate);
+      const formattedEndDate = formatDate(endDate);
+
+      // Get the profile picture path if uploaded
+      const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+
+      // Create new course with parsed dates
+      const newCourse = new Course({
+        title,
+        course_image,
+        category_id,
+        sub_category_id,
+        type,
+        startTime,
+        endTime,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate,
+        teacher_id,
+      });
+
+      const savedCourse = await newCourse.save();
+
+      res.status(201).json({
+        _id: savedCourse._id,
+        title: savedCourse.title,
+        course_image: savedCourse.course_image,
+        category_id: savedCourse.category_id,
+        sub_category_id: savedCourse.sub_category_id,
+        type: savedCourse.type,
+        startTime: savedCourse.startTime,
+        endTime: savedCourse.endTime,
+        startDate: savedCourse.startDate,
+        endDate: savedCourse.endDate,
+        teacher_id: savedCourse.teacher_id,
+        status: true,
+      });
+    } catch (error) {
+      console.error("Error adding course:", error.message);
+      res.status(500).json({ error: "Internal Server Error" });
     }
-
-    // Calculate end date excluding weekends
-    const endDate = calculateEndDate(startDate, 21); // Excluding weekends
-    const formattedStartDate = formatDate(startDate);
-    const formattedEndDate = formatDate(endDate);
-
-    // Create new course with parsed dates
-    const newCourse = new Course({
-      title,
-      category_id,
-      sub_category_id,
-      type,
-      startTime,
-      endTime,
-      startDate: formattedStartDate,
-      endDate: formattedEndDate,
-      teacher_id,
-    });
-
-    const savedCourse = await newCourse.save();
-
-    res.status(201).json({
-      _id: savedCourse._id,
-      title: savedCourse.title,
-      category_id: savedCourse.category_id,
-      sub_category_id: savedCourse.sub_category_id,
-      type: savedCourse.type,
-      startTime: savedCourse.startTime,
-      endTime: savedCourse.endTime,
-      startDate: savedCourse.startDate,
-      endDate: savedCourse.endDate,
-      teacher_id: savedCourse.teacher_id,
-      status: true,
-    });
-  } catch (error) {
-    console.error("Error adding course:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
+  });
 });
 
 const updateCourseDates = asyncHandler(async (req, res) => {
@@ -406,6 +412,7 @@ const getTodayCourse = asyncHandler(async (req, res) => {
         ...course.toObject({ getters: true, virtuals: true }),
         users: course.userIds.map((userId) => userMap[userId]),
         days: daysArray,
+        course_image: course.course_image,
       };
 
       coursesWithUsersAndDays.push(courseWithUsersAndDays);
@@ -476,6 +483,7 @@ const getMyClasses = asyncHandler(async (req, res) => {
         ...course.toObject({ getters: true, virtuals: true }),
         users: course.userIds.map((userId) => userMap[userId]),
         days: daysArray,
+        course_image: course.course_image,
       };
 
       coursesWithUsers.push(courseWithUsers);

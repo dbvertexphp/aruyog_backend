@@ -8,6 +8,9 @@ const courseSchema = new Schema(
       type: String,
       required: true,
     },
+    course_image: {
+      type: String,
+    },
     category_id: { type: Schema.Types.ObjectId, ref: "Category", required: true },
     sub_category_id: { type: Schema.Types.ObjectId, ref: "Category.subcategories", required: true },
     type: {
