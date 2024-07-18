@@ -826,6 +826,9 @@ const getAllTeachers = asyncHandler(async (req, res) => {
         };
       }
 
+      // Add favorite field
+      transformedTeacher.favorite = favoriteTeacherIds.includes(teacher._id.toString());
+
       return { teacher: transformedTeacher };
     });
 
@@ -834,6 +837,7 @@ const getAllTeachers = asyncHandler(async (req, res) => {
 
     res.json({
       Teachers: transformedTeachers,
+
       total_rows: totalTeachers,
       current_page: page,
       total_pages: Math.ceil(totalTeachers / limit),
