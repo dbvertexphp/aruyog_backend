@@ -24,8 +24,6 @@ const userSchema = mongoose.Schema({
   firebase_token: { type: String, default: "dummy_token" },
   profile_pic: {
     type: String,
-    required: true,
-    default: "defult_profile/defult_pic.jpg",
   },
   background_image: {
     type: String,

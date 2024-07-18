@@ -1,21 +1,14 @@
 const asyncHandler = require("express-async-handler");
 const cookie = require("cookie");
-const axios = require("axios");
 const bcrypt = require("bcryptjs");
 const moment = require("moment");
-
 const { generateToken, blacklistToken } = require("../config/generateToken.js");
 const { User, NotificationMessages, AdminDashboard, WebNotification } = require("../models/userModel.js");
-const { Reel, ReelLike, ReelComment } = require("../models/reelsModel.js");
-const { Video, VideoLike, VideoComment } = require("../models/videoModel.js");
-const { PostTimeline } = require("../models/posttimelineModel.js");
-const { PostJob } = require("../models/postjobModel.js");
 const Category = require("../models/categoryModel.js");
 const Review = require("../models/reviewModel.js");
 const BankDetails = require("../models/bankdetailsModel.js");
 const Transaction = require("../models/transactionModel");
 const { AdminNotificationMessages } = require("../models/adminnotificationsmodel.js");
-const multer = require("multer");
 const MyFriends = require("../models/myfrindsModel.js");
 const { Hire, HireStatus } = require("../models/hireModel.js");
 require("dotenv").config();
@@ -33,9 +26,6 @@ const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Favorite = require("../models/favorite.js");
 const Rating = require("../models/ratingModel.js");
 const fs = require("fs");
-const { startOfMonth, endOfMonth, addMonths, format, parse } = require("date-fns");
-const ConnectyCube = require("connectycube");
-
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   try {
@@ -217,7 +207,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
     const otp = generateOTP();
     const full_name = `${first_name} ${last_name}`;
 
-    const { token, id } = await createConnectyCubeUser(mobile, password, email, full_name, role);
+    //const { token, id } = await createConnectyCubeUser(mobile, password, email, full_name, role);
 
     // Get the profile picture path if uploaded
     const profile_pic = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
@@ -233,8 +223,8 @@ const registerUser = asyncHandler(async (req, res, next) => {
       full_name,
       firebase_token,
       profile_pic, // Add profile_pic field
-      ConnectyCube_token: token,
-      ConnectyCube_id: id,
+      // ConnectyCube_token: token,
+      // ConnectyCube_id: id,
     });
 
     if (user) {
@@ -262,8 +252,8 @@ const registerUser = asyncHandler(async (req, res, next) => {
         otp: user.otp,
         firebase_token,
         profile_pic: user.profile_pic, // Include profile_pic in response
-        ConnectyCube_token: user.ConnectyCube_token,
-        ConnectyCube_id: user.ConnectyCube_id,
+        // ConnectyCube_token: user.ConnectyCube_token,
+        // ConnectyCube_id: user.ConnectyCube_id,
         token: generateToken(user._id),
         status: true,
       });
@@ -380,8 +370,21 @@ const verifyOtp = asyncHandler(async (req, res) => {
       throw new ErrorHandler("Invalid OTP.", 400);
     }
 
+    // Create ConnectyCube user after OTP is verified
+    const { token, id } = await createConnectyCubeUser(mobile, user.password, user.email, user.full_name, user.role);
+
     // Update the user's otp_verified field to 1 (OTP verified)
-    const result = await User.updateOne({ _id: user._id }, { $set: { otp_verified: 1 } });
+    // Update the user's otp_verified field and ConnectyCube credentials
+    const result = await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          otp_verified: 1,
+          ConnectyCube_token: token,
+          ConnectyCube_id: id,
+        },
+      }
+    );
 
     if (result.nModified > 0) {
       console.log("OTP verification status updated successfully.");
@@ -391,11 +394,12 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
     // Retrieve the updated user document
     const updatedUser = await User.findById(user._id);
-    console.log(updatedUser);
-    const token = jwt.sign({ _id: updatedUser._id, role: updatedUser.role }, process.env.JWT_SECRET);
+
+    const authToken = jwt.sign({ _id: updatedUser._id, role: updatedUser.role }, process.env.JWT_SECRET);
+
     res.json({
       user: updatedUser,
-      token: token,
+      token: authToken,
       status: true,
     });
   } catch (error) {
@@ -606,13 +610,16 @@ const forgetPassword = asyncHandler(async (req, res) => {
 });
 
 const ChangePassword = asyncHandler(async (req, res, next) => {
-  const { oldPassword, newPassword } = req.body;
+  const userId = req.headers.userID; // Assuming you have user authentication middleware
+  const { newPassword, confirmPassword } = req.body;
 
-  if (!oldPassword || !newPassword) {
+  if (!newPassword || !confirmPassword || !userId) {
     return next(new ErrorHandler("Please enter all the required fields.", 400));
   }
 
-  const userId = req.headers.userID; // Assuming you have user authentication middleware
+  if (newPassword !== confirmPassword) {
+    return next(new ErrorHandler("New password and confirm password do not match.", 400));
+  }
 
   // Find the user by _id
   const user = await User.findById(userId);
@@ -621,43 +628,13 @@ const ChangePassword = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("User Not Found.", 400));
   }
 
-  // Check if the provided old password matches the current password
-  const isOldPasswordCorrect = await bcrypt.compare(oldPassword, user.password);
-
-  if (!isOldPasswordCorrect) {
-    return next(new ErrorHandler("Incorrect old password.", 400));
-  }
-
-  // Check if the new password is the same as the old one
-  const isNewPasswordSameAsOld = await bcrypt.compare(newPassword, user.password);
-
-  if (isNewPasswordSameAsOld) {
-    return next(new ErrorHandler("New password must be different from the old password.", 400));
-  }
-
   // Hash the new password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-  // const userToUpdate = {
-  //   id: user.ConnectyCube_id, // Replace with the user's ConnectyCube ID
-  //   newPassword: newPassword, // Replace with the new password you want to set
-  // };
-
-  // const userToUpdate = {
-  //   login: 1111111111,
-  //   full_name: "Suraj Verma",
-  //   // Add password and oldPassword properties for password update (if needed)
-  //   password: "123456" , // New password to set
-  //   oldPassword: "12345678", // Current password for verification
-  // };
-  // Update the user with the new password
-  // await updatePassword(userToUpdate);
-
   // Update the password in MongoDB
   try {
-    user.password = hashedPassword;
-    await user.save();
+    const result = await User.updateOne({ _id: user._id }, { $set: { password: hashedPassword } });
 
     res.status(201).json({
       message: "Password changed successfully.",
