@@ -16,6 +16,7 @@ const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
 const moment = require("moment-business-days");
 const { log } = require("util");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
+const Transaction = require("../models/transactionModel.js");
 
 dotenv.config();
 
@@ -141,6 +142,52 @@ const getTeacherProfileData = asyncHandler(async (req, res) => {
   try {
     // Find the user by ID
     const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    let paymentDetails = {};
+    if (user.payment_id) {
+      // Fetch payment details from TeacherPayment model
+      const payment = await TeacherPayment.findById(user.payment_id);
+      if (payment) {
+        paymentDetails = {
+          type: payment.advance ? "advance" : "master", // Determine type based on available fields
+          amount: payment.advance || payment.master,
+        };
+      }
+    }
+
+    // Return the user's profile information
+    return res.status(200).json({
+      _id: user._id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      full_name: user.full_name,
+      mobile: user.mobile,
+      email: user.email,
+      experience: user.experience,
+      education: user.education,
+      languages: user.languages,
+      expertise: user.expertise,
+      about_me: user.about_me,
+      background_image: user.background_image,
+      profile_pic: user.profile_pic,
+      status: true,
+      payment: paymentDetails,
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error.message);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+const getTeacherProfileDataByTeacherId = asyncHandler(async (req, res) => {
+  const { teacher_id } = req.body; // Assuming you have user authentication middleware
+
+  try {
+    // Find the user by ID
+    const user = await User.findById(teacher_id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -356,19 +403,21 @@ const updateCourseDates = asyncHandler(async (req, res) => {
 });
 
 const getTodayCourse = asyncHandler(async (req, res) => {
-  const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
-  const currentDate = new Date(); // Get current date
-  const formattedCurrentDate = formatDate(currentDate); // Format date to YYYY-MM-DD
+  const teacherId = req.headers.userID; // Assuming user authentication middleware sets this header
+
+  // Get current date and format it to YYYY-MM-DD
+  const currentDate = new Date();
+  const formattedCurrentDate = formatDate(currentDate); // Ensure formatDate returns YYYY-MM-DD
 
   try {
-    // Find courses where startDate matches the current date and teacher_id matches
+    // Find courses where startDate and endDate include today's date and teacher_id matches
     const courses = await Course.find({
-      teacher_id,
-      startDate: { $lte: formattedCurrentDate }, // Format current date to match stored
+      teacher_id: teacherId,
+      startDate: { $lte: formattedCurrentDate },
       endDate: { $gte: formattedCurrentDate },
       userIds: { $ne: [] },
     })
-      .sort({ startTime: -1 }) // Sort by startTime ascending order
+      .sort({ startTime: 1 }) // Sort by startTime ascending order
       .exec();
 
     if (!courses || courses.length === 0) {
@@ -383,6 +432,18 @@ const getTodayCourse = asyncHandler(async (req, res) => {
       acc.push(...course.userIds);
       return acc;
     }, []);
+
+    // Fetching transactions to get purchase dates
+    const transactions = await Transaction.find({
+      user_id: { $in: userIds },
+      course_id: { $in: courses.map((course) => course._id) },
+    }).exec();
+
+    // Mapping transaction data to course IDs
+    const purchaseDateMap = transactions.reduce((acc, transaction) => {
+      acc[transaction.course_id] = transaction.datetime;
+      return acc;
+    }, {});
 
     // Fetching only required fields from User collection
     const users = await User.find(
@@ -402,21 +463,18 @@ const getTodayCourse = asyncHandler(async (req, res) => {
       return acc;
     }, {});
 
-    // Adding user details to each course
-    const coursesWithUsersAndDays = [];
-    for (let i = 0; i < courses.length; i++) {
-      const course = courses[i];
+    // Adding user details and calculating days for each course
+    const coursesWithUsersAndDays = courses.map((course) => {
       const daysArray = calculateDaysArray(course.startDate, course.endDate);
 
-      const courseWithUsersAndDays = {
+      return {
         ...course.toObject({ getters: true, virtuals: true }),
         users: course.userIds.map((userId) => userMap[userId]),
         days: daysArray,
         course_image: course.course_image,
+        purchaseDate: purchaseDateMap[course._id] || null,
       };
-
-      coursesWithUsersAndDays.push(courseWithUsersAndDays);
-    }
+    });
 
     res.status(200).json({ courses: coursesWithUsersAndDays });
   } catch (error) {
@@ -453,6 +511,18 @@ const getMyClasses = asyncHandler(async (req, res) => {
       return acc;
     }, []);
 
+    // Fetching transactions to get purchase dates
+    const transactions = await Transaction.find({
+      user_id: { $in: userIds },
+      course_id: { $in: courses.map((course) => course._id) },
+    }).exec();
+
+    // Mapping transaction data to course IDs
+    const purchaseDateMap = transactions.reduce((acc, transaction) => {
+      acc[transaction.course_id] = transaction.datetime;
+      return acc;
+    }, {});
+
     const users = await User.find(
       { _id: { $in: userIds } },
       {
@@ -484,6 +554,7 @@ const getMyClasses = asyncHandler(async (req, res) => {
         users: course.userIds.map((userId) => userMap[userId]),
         days: daysArray,
         course_image: course.course_image,
+        purchaseDate: purchaseDateMap[course._id] || null,
       };
 
       coursesWithUsers.push(courseWithUsers);
@@ -544,4 +615,4 @@ const calculateEndDate = (startDate, daysToAdd) => {
   return currentDay.toISOString().split("T")[0];
 };
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId };

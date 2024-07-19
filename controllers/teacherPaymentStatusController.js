@@ -324,6 +324,24 @@ const calculatePayment = asyncHandler(async (req, res) => {
       previousMonthTotals.push({ month: monthKey, totalAmount: monthTotal });
     });
 
+    // Get student payment details
+    const transactions = await Transaction.find({ teacher_id: teacherId });
+
+    const studentIds = transactions.map((txn) => txn.user_id);
+    const students = await User.find({ _id: { $in: studentIds } }, "profile_pic full_name");
+
+    const studentPayments = transactions.map((txn) => {
+      const student = students.find((stu) => stu._id.equals(txn.user_id));
+
+      return {
+        student_id: txn.user_id,
+        profile_pic: student ? student.profile_pic : "Unknown",
+        full_name: student ? student.full_name : "Unknown",
+        transaction_datetime: txn.datetime,
+        amount: txn.amount,
+      };
+    });
+
     res.json({
       totalAmount,
       remainingAmount,
@@ -332,6 +350,7 @@ const calculatePayment = asyncHandler(async (req, res) => {
       previousMonthTotals,
       fullName,
       profile_pic,
+      studentPayments,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

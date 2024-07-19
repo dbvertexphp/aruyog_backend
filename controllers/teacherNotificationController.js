@@ -42,11 +42,11 @@ const addNotification = async (userId, teacher_Id, title, course_title, amount) 
 const getTeacherNotifications = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
   const perPage = 10; // Number of notifications per page
-
+  const user_id = req.headers.userID;
   try {
-    const count = await TeacherNotification.countDocuments({ user_id: req.headers.userID });
+    const count = await TeacherNotification.countDocuments({ teacher_id: user_id });
 
-    const notifications = await TeacherNotification.find({ user_id: req.headers.userID })
+    const notifications = await TeacherNotification.find({ teacher_id: user_id })
       .sort({ created_at: -1 }) // Sort by descending order of creation date
       .populate("user_id", "full_name profile_pic") // Populate user details from User collection
       .skip((page - 1) * perPage)

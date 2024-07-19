@@ -26,6 +26,8 @@ const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Favorite = require("../models/favorite.js");
 const Rating = require("../models/ratingModel.js");
 const fs = require("fs");
+const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
+
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
   try {
@@ -2047,11 +2049,16 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
 
       // Check if the user has already taken a demo
       const askDemo = course.askdemoid.includes(user_id);
+
+      // Calculate days array between startDate and endDate
+      const daysArray = calculateDaysArray(course.startDate, course.endDate);
+      console.log(daysArray);
       return {
         ...course.toObject(),
         courseAvailable,
         users: course.userIds.map((userId) => userMap[userId]),
         askDemo,
+        days: daysArray,
         course_image: course.course_image,
       };
     });
@@ -2075,6 +2082,31 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
     });
   }
 };
+
+function calculateDaysArray(startDate, endDate) {
+  const daysArray = [];
+  let currentDate = new Date(startDate);
+  let daysCount = 0;
+
+  while (currentDate <= new Date(endDate) && daysCount < 21) {
+    if (!isWeekend(currentDate)) {
+      daysArray.push(formatDate(currentDate));
+      daysCount++;
+    }
+    currentDate = addDays(currentDate, 1);
+  }
+
+  return daysArray;
+}
+
+// Helper function to format date in YYYY/MM/DD format
+function formatDate(date) {
+  const d = new Date(date);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${year}/${month}/${day}`;
+}
 
 const addFavoriteTeacher = asyncHandler(async (req, res) => {
   const { teacher_ids } = req.body;
@@ -2685,7 +2717,6 @@ module.exports = {
   getNotificationId,
   searchUsers,
   getAllUsersWebsite,
-  // updateUserWatchTime,
   UserAdminStatus,
   ManullyListUpdate,
   UpdateMobileAdmin,
