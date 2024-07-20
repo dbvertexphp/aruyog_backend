@@ -22,7 +22,15 @@ const protect = asyncHandler(async (req, res, next) => {
 
       // Decode token id
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.id).select("-password");
+      const user = await User.findById(decoded._id).select("-password");
+
+      if (user.deleted_at) {
+        res.status(401).json({
+          message: "Admin has deactive you please contact admin",
+          type: "deactive",
+          status: false,
+        });
+      }
       req.headers.userID = decoded._id;
       req.headers.role = decoded.role;
       req.user = user;

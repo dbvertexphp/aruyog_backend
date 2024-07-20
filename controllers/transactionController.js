@@ -40,6 +40,11 @@ const addTransaction = asyncHandler(async (req, res) => {
       });
     }
 
+    const TransactionData = await Transaction.findOne({ payment_id: payment_id });
+    if (TransactionData) {
+      return res.status(404).json({ message: "Already Payment is done" });
+    }
+
     const newTransaction = new Transaction({
       user_id,
       teacher_id,

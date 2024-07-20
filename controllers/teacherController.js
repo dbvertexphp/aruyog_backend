@@ -141,7 +141,7 @@ const getTeacherProfileData = asyncHandler(async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await User.findById(userId);
+    const user = await User.findById({ _id: userId, deleted_at: null });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -187,7 +187,7 @@ const getTeacherProfileDataByTeacherId = asyncHandler(async (req, res) => {
 
   try {
     // Find the user by ID
-    const user = await User.findById(teacher_id);
+    const user = await User.findById({ _id: teacher_id, deleted_at: null });
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }

@@ -302,6 +302,14 @@ const authUser = asyncHandler(async (req, res) => {
       throw new ErrorHandler("JWT_SECRET is not defined in environment variables", 500);
     }
 
+    if (userdata.deleted_at) {
+      res.status(401).json({
+        message: "Admin has deactive you please contact admin",
+        type: "deactive",
+        status: false,
+      });
+    }
+
     const token = jwt.sign({ _id: userdata._id, role: userdata.role }, process.env.JWT_SECRET);
 
     // Set the token in a cookie for 30 days
@@ -763,7 +771,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
   }
 });
 
-const getAllTeachers = asyncHandler(async (req, res) => {
+const getAllSearchTeachers = asyncHandler(async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -772,10 +780,109 @@ const getAllTeachers = asyncHandler(async (req, res) => {
 
     // Search keyword from query params
     const searchKeyword = req.query.search || "";
+    const categoryKeyword = req.query.category_id || "";
 
+    // Fetch the list of teacher IDs from the Course table that match the category_id
+    const courses = await Course.find({ category_id: categoryKeyword }).select("teacher_id");
+    const teacherIds = courses.map((course) => course.teacher_id.toString());
+
+    // Query to find teachers based on the search keyword, category, and deleted_at null
     const query = {
       role: "teacher",
       deleted_at: null,
+      _id: { $in: teacherIds },
+      $or: [{ first_name: { $regex: searchKeyword, $options: "i" } }, { last_name: { $regex: searchKeyword, $options: "i" } }],
+    };
+
+    const teachers = await User.find(query)
+      .populate({
+        path: "payment_id",
+      })
+      .skip(skip)
+      .limit(limit);
+
+    const totalTeachers = await User.countDocuments(query);
+
+    // Fetch the user's favorite teachers
+    const favorite = await Favorite.findOne({ user_id });
+
+    const favoriteTeacherIds = favorite ? favorite.teacher_ids.map((id) => id.toString()) : [];
+
+    // Map each teacher to an array of promises
+    const transformedTeachersPromises = teachers.map(async (teacher) => {
+      let transformedTeacher = { ...teacher.toObject() }; // Convert Mongoose document to plain JavaScript object
+      if (transformedTeacher.watch_time) {
+        transformedTeacher.watch_time = convertSecondsToReadableTimeAdmin(transformedTeacher.watch_time);
+      }
+
+      // Determine the payment type dynamically based on payment_id
+      if (transformedTeacher.payment_id) {
+        let paymentType;
+        let paymentAmount;
+
+        if (transformedTeacher.payment_id.advance !== undefined) {
+          paymentType = "advance";
+          paymentAmount = transformedTeacher.payment_id.advance;
+        } else if (transformedTeacher.payment_id.master !== undefined) {
+          paymentType = "master";
+          paymentAmount = transformedTeacher.payment_id.master;
+        } else {
+          // Handle case where neither advance nor master is defined
+          paymentType = null;
+          paymentAmount = null;
+        }
+
+        transformedTeacher.payment = {
+          type: paymentType,
+          amount: paymentAmount,
+        };
+        delete transformedTeacher.payment_id; // Remove payment_id from the teacher object
+      } else {
+        transformedTeacher.payment = {
+          type: null,
+          amount: null,
+        };
+      }
+
+      // Add favorite field
+      transformedTeacher.favorite = favoriteTeacherIds.includes(teacher._id.toString());
+
+      return { teacher: transformedTeacher };
+    });
+
+    // Execute all promises concurrently
+    const transformedTeachers = await Promise.all(transformedTeachersPromises);
+
+    res.json({
+      Teachers: transformedTeachers,
+      total_rows: totalTeachers,
+      current_page: page,
+      total_pages: Math.ceil(totalTeachers / limit),
+    });
+  } catch (error) {
+    console.error(error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        message: "Internal Server Error",
+        status: false,
+      });
+    }
+  }
+});
+
+const getAllTeachersByAdmin = asyncHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+    const user_id = req.headers.userID;
+
+    // Search keyword from query params
+    const searchKeyword = req.query.search || "";
+    const categoryKeyword = req.query.category || "";
+
+    const query = {
+      role: "teacher",
       $or: [{ first_name: { $regex: searchKeyword, $options: "i" } }, { last_name: { $regex: searchKeyword, $options: "i" } }],
     };
 
@@ -2224,6 +2331,7 @@ const getFavoriteTeachers = asyncHandler(async (req, res) => {
   try {
     const favorite = await Favorite.findOne({ user_id }).populate({
       path: "teacher_ids",
+      match: { deleted_at: null },
       populate: {
         path: "payment_id",
         model: "TeacherPayment",
@@ -2273,6 +2381,7 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
     // Find courses with the given subcategory_id
     const courses = await Course.find({
       sub_category_id: subcategory_id,
+      deleted_at: null,
     }).populate("teacher_id");
 
     if (!courses.length) {
@@ -2727,7 +2836,7 @@ module.exports = {
   updateAllUsersFullName,
   Put_Profile_Pic_munally,
   Delete_DeleteSignedUrlS3,
-  getAllTeachers,
+  getAllSearchTeachers,
   getAllCourse,
   getCoursesByTeacherId,
   getMasterAndAdvancePayments,
@@ -2748,4 +2857,5 @@ module.exports = {
   getAllTeachersInAdmin,
   updateCourseWithDemoId,
   askForDemo,
+  getAllTeachersByAdmin,
 };
