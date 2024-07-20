@@ -775,6 +775,7 @@ const getAllTeachers = asyncHandler(async (req, res) => {
 
     const query = {
       role: "teacher",
+      deleted_at: null,
       $or: [{ first_name: { $regex: searchKeyword, $options: "i" } }, { last_name: { $regex: searchKeyword, $options: "i" } }],
     };
 
@@ -1693,6 +1694,7 @@ const getAllCourse = asyncHandler(async (req, res) => {
         teacher: transformedCourse.teacher_id,
         createdAt: transformedCourse.createdAt,
         updatedAt: transformedCourse.updatedAt,
+        deleted_at: transformedCourse.deleted_at,
       };
     });
 
@@ -2007,6 +2009,7 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
     const courses = await Course.find({
       teacher_id: teacher_id,
       type: type,
+      deleted_at: null,
     });
 
     if (!courses || courses.length === 0) {
@@ -2329,6 +2332,7 @@ const getCoursesByUserId = asyncHandler(async (req, res) => {
   }
 
   let courseQuery = {
+    deleted_at: null,
     $or: [{ userIds: user_id }, { askDemoids: user_id }],
   };
 

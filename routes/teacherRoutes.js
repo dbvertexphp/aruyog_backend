@@ -1,7 +1,7 @@
 const express = require("express");
 const protect = require("../middleware/authMiddleware.js");
 const Authorization = require("../middleware/Authorization.middleware.js");
-const { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId } = require("../controllers/teacherController.js");
+const { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus } = require("../controllers/teacherController.js");
 
 const teacherRoutes = express.Router();
 
@@ -15,5 +15,6 @@ teacherRoutes.route("/getMyClasses").get(protect, Authorization(["teacher"]), ge
 teacherRoutes.route("/getTeacherProfileDataByTeacherId").post(protect, getTeacherProfileDataByTeacherId);
 
 teacherRoutes.route("/updateCourseDates").post(protect, Authorization(["admin"]), updateCourseDates);
+teacherRoutes.route("/courseActiveStatus").post(protect, Authorization(["admin"]), CourseActiveStatus);
 
 module.exports = { teacherRoutes };

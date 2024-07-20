@@ -29,6 +29,7 @@ const userSchema = mongoose.Schema({
     type: String,
     required: false,
   },
+  deleted_at: { type: String, default: null },
   ConnectyCube_token: { type: String, default: null },
   ConnectyCube_id: { type: String, default: null },
   experience: { type: String },

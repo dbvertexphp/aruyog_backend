@@ -413,6 +413,7 @@ const getTodayCourse = asyncHandler(async (req, res) => {
     // Find courses where startDate and endDate include today's date and teacher_id matches
     const courses = await Course.find({
       teacher_id: teacherId,
+      deleted_at: null,
       startDate: { $lte: formattedCurrentDate },
       endDate: { $gte: formattedCurrentDate },
       userIds: { $ne: [] },
@@ -492,6 +493,7 @@ const getMyClasses = asyncHandler(async (req, res) => {
     // Find courses where startDate matches the current date and teacher_id matches
     const courses = await Course.find({
       teacher_id,
+      deleted_at: null,
       startDate: { $lte: formattedCurrentDate }, // Format current date to match stored
       endDate: { $gte: formattedCurrentDate },
     })
@@ -615,4 +617,44 @@ const calculateEndDate = (startDate, daysToAdd) => {
   return currentDay.toISOString().split("T")[0];
 };
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId };
+const CourseActiveStatus = async (req, res) => {
+  const { course_id } = req.body;
+  try {
+    // Find the video by its _id
+    const user = await Course.findById(course_id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    // Check if deleted_at field is null or has a value
+    if (user.deleted_at === null) {
+      const updatedUser = await Course.findByIdAndUpdate(
+        course_id,
+        {
+          $set: {
+            deleted_at: new Date(),
+          },
+        },
+        { new: true }
+      );
+    } else {
+      const updatedUser = await Course.findByIdAndUpdate(
+        course_id,
+        {
+          $set: {
+            deleted_at: null,
+          },
+        },
+        { new: true }
+      );
+    }
+    return res.status(200).json({
+      message: "Course soft delete status toggled successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus };
