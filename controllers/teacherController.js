@@ -2,7 +2,6 @@ const asyncHandler = require("express-async-handler");
 const cookie = require("cookie");
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
-// const moment = require("moment-timezone");
 const { User, NotificationMessages, AdminDashboard, WebNotification } = require("../models/userModel.js");
 const dotenv = require("dotenv");
 const baseURL = process.env.BASE_URL;
@@ -14,9 +13,11 @@ const upload = require("../middleware/uploadMiddleware.js");
 const fs = require("fs");
 const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
 const moment = require("moment-business-days");
+
 const { log } = require("util");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Transaction = require("../models/transactionModel.js");
+const { sendFCMNotification } = require("./notificationControllers");
 
 dotenv.config();
 
@@ -637,6 +638,29 @@ const CourseActiveStatus = async (req, res) => {
         },
         { new: true }
       );
+
+      const teacher_id = user.teacher_id;
+
+      // Get the teacher information
+      const teacher = await User.findById(teacher_id);
+      if (!teacher) {
+        return res.status(404).json({ message: "Teacher not found" });
+      }
+      console.log("Deactivated");
+      // Check if teacher has a firebase_token
+      if (teacher.firebase_token) {
+        const registrationToken = teacher.firebase_token;
+        const title = `Course Deactivated`;
+        const body = `The course "${user.title}" has been deactivated.`;
+
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+      }
     } else {
       const updatedUser = await Course.findByIdAndUpdate(
         course_id,
@@ -647,6 +671,28 @@ const CourseActiveStatus = async (req, res) => {
         },
         { new: true }
       );
+      const teacher_id = user.teacher_id;
+
+      // Get the teacher information
+      const teacher = await User.findById(teacher_id);
+      if (!teacher) {
+        return res.status(404).json({ message: "Teacher not found" });
+      }
+      console.log("Activated");
+      // Check if teacher has a firebase_token
+      if (teacher.firebase_token) {
+        const registrationToken = teacher.firebase_token;
+        const title = `Course Activated`;
+        const body = `The course "${user.title}" has been Activated.`;
+
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+      }
     }
     return res.status(200).json({
       message: "Course soft delete status toggled successfully",
@@ -657,4 +703,48 @@ const CourseActiveStatus = async (req, res) => {
   }
 };
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus };
+const autoDeactivateCourses = async () => {
+  try {
+    const currentDate = moment().startOf("day");
+    // Find all courses with an endDate less than the current date and not already deactivated
+    const coursesToDeactivate = await Course.find({
+      endDate: { $lt: currentDate.format("YYYY/MM/DD") },
+      deleted_at: null,
+    });
+
+    // Iterate over each course and deactivate it
+    for (let course of coursesToDeactivate) {
+      const updatedCourse = await Course.findByIdAndUpdate(
+        course._id,
+        {
+          $set: {
+            deleted_at: new Date(),
+          },
+        },
+        { new: true }
+      );
+
+      // Get the teacher information
+      const teacher = await User.findById(course.teacher_id);
+      if (teacher && teacher.firebase_token) {
+        const registrationToken = teacher.firebase_token;
+        const title = `Course Deactivated`;
+        const body = `The course "${course.title}" has been automatically deactivated because the end date has passed.`;
+
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+      }
+    }
+
+    console.log("Courses with past end dates have been deactivated successfully.");
+  } catch (error) {
+    console.error("Error during auto deactivation of courses:", error);
+  }
+};
+
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses };

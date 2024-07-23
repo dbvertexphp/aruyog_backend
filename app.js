@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const cookieParser = require("cookie-parser");
 const http = require("http");
 const ngrok = require("@ngrok/ngrok");
+const cron = require("node-cron");
 
 // --------------------- Routes -------------------------------
 const { userRoutes } = require("./routes/userRoutes.js");
@@ -28,6 +29,7 @@ const path = require("path");
 const { subCategoryRoutes } = require("./routes/subCategoryRoutes.js");
 const { teacherRoutes } = require("./routes/teacherRoutes.js");
 const { teacherNotificationsRoutes } = require("./routes/teacherNotificationRoutes.js");
+const { autoDeactivateCourses } = require("./controllers/teacherController.js");
 // const serviceAccount = require("./serviceAccountKey.json");
 
 // const admin = require("firebase-admin");
@@ -76,6 +78,10 @@ app.use("/api/admin", adminRoutes);
 // --------------------------Routes------------------------------
 
 // --------------------------deploymentssssss------------------------------
+cron.schedule("* * * * *", () => {
+  console.log("running a task every minute");
+  autoDeactivateCourses();
+});
 
 if (process.env.NODE_ENV == "production") {
   app.use(express.static(path.join(__dirname1, "/view")));

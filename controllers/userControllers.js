@@ -27,6 +27,7 @@ const Favorite = require("../models/favorite.js");
 const Rating = require("../models/ratingModel.js");
 const fs = require("fs");
 const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
+const { sendFCMNotification } = require("./notificationControllers");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -1509,6 +1510,22 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
         },
         { new: true }
       );
+      const firebase_token = user.firebase_token;
+      console.log("Deactivated");
+      // Check if teacher has a firebase_token
+      if (firebase_token) {
+        const registrationToken = firebase_token;
+        const title = `${user.full_name} Deactivated`;
+        const body = `${user.full_name} Deactivated`;
+
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+      }
     } else {
       const updatedUser = await User.findByIdAndUpdate(
         userId,
@@ -1519,6 +1536,22 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
         },
         { new: true }
       );
+      const firebase_token = user.firebase_token;
+      console.log("Activated");
+      // Check if teacher has a firebase_token
+      if (firebase_token) {
+        const registrationToken = firebase_token;
+        const title = `${user.full_name} Activated`;
+        const body = `${user.full_name} Activated`;
+
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+      }
     }
     return res.status(200).json({
       message: "User soft delete status toggled successfully",
@@ -2090,7 +2123,23 @@ const updateUserPayment = async (req, res, next) => {
 
   user.updatedAt = Date.now();
 
-  await user.save();
+  const updatedUser = await user.save();
+  if (updatedUser) {
+    // Check if teacher has a firebase_token
+    if (updatedUser.firebase_token) {
+      const registrationToken = updatedUser.firebase_token;
+      const title = `${updatedUser.full_name} Payment Updated`;
+      const body = `${updatedUser.full_name} Payment Updated`;
+
+      // Send notification
+      const notificationResult = await sendFCMNotification(registrationToken, title, body);
+      if (notificationResult.success) {
+        console.log("Notification sent successfully:", notificationResult.response);
+      } else {
+        console.error("Failed to send notification:", notificationResult.error);
+      }
+    }
+  }
 
   res.status(200).json({
     _id: user._id,
