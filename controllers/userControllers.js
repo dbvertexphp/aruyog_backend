@@ -28,6 +28,8 @@ const Rating = require("../models/ratingModel.js");
 const fs = require("fs");
 const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
 const { sendFCMNotification } = require("./notificationControllers");
+const { addNotification } = require("./teacherNotificationController");
+const TeacherNotification = require("../models/teacherNotificationModel");
 
 const getUsers = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -1159,6 +1161,7 @@ const getAllDashboardCount = asyncHandler(async (req, res) => {
     const teacherCount = await User.countDocuments({ role: "teacher" });
     const studentCount = await User.countDocuments({ role: "student" });
     const courseCount = await Course.countDocuments();
+    const teacherNotificationCount = await TeacherNotification.countDocuments();
     const adminnotifications = await AdminNotificationMessages.countDocuments({
       readstatus: false,
     }); // Counting only documents with readstatus false
@@ -1178,6 +1181,7 @@ const getAllDashboardCount = asyncHandler(async (req, res) => {
       teacherCount: teacherCount,
       studentCount: studentCount,
       courseCount: courseCount,
+      teacherNotificationCount: teacherNotificationCount,
       adminnotifications: adminnotifications,
       transactionTotalAmount: transactionTotalAmount,
     });
@@ -1490,78 +1494,140 @@ const getNotificationId = asyncHandler(async (req, res) => {
   }
 });
 
+// const UserAdminStatus = asyncHandler(async (req, res) => {
+//   const userId = req.body.userId;
+//   try {
+//     // Find the video by its _id
+//     const user = await User.findById(userId);
+
+//     if (!user) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     // Check if deleted_at field is null or has a value
+//     if (user.deleted_at === null) {
+//       const updatedUser = await User.findByIdAndUpdate(
+//         userId,
+//         {
+//           $set: {
+//             deleted_at: new Date(),
+//           },
+//         },
+//         { new: true }
+//       );
+
+//       const firebase_token = user.firebase_token;
+//       console.log("Deactivated");
+//       // Check if teacher has a firebase_token
+//       if (firebase_token) {
+//         const registrationToken = firebase_token;
+//         const title = `${user.full_name} Deactivated`;
+//         const body = `${user.full_name} Deactivated`;
+
+//         // Send notification
+//         const notificationResult = await sendFCMNotification(registrationToken, title, body);
+//         if (notificationResult.success) {
+//           console.log("Notification sent successfully:", notificationResult.response);
+//         } else {
+//           console.error("Failed to send notification:", notificationResult.error);
+//         }
+//         await addNotification(null, userId, "Status Deactivated", null, null);
+//       }
+//     } else {
+//       const updatedUser = await User.findByIdAndUpdate(
+//         userId,
+//         {
+//           $set: {
+//             deleted_at: null,
+//           },
+//         },
+//         { new: true }
+//       );
+//       const firebase_token = user.firebase_token;
+//       console.log("Activated");
+//       // Check if teacher has a firebase_token
+//       if (firebase_token) {
+//         const registrationToken = firebase_token;
+//         const title = `${user.full_name} Activated`;
+//         const body = `${user.full_name} Activated`;
+
+//         // Send notification
+//         const notificationResult = await sendFCMNotification(registrationToken, title, body);
+//         if (notificationResult.success) {
+//           console.log("Notification sent successfully:", notificationResult.response);
+//         } else {
+//           console.error("Failed to send notification:", notificationResult.error);
+//         }
+//         await addNotification(null, userId, "Status Activated", null, null);
+//       }
+//     }
+//     return res.status(200).json({
+//       message: "User soft delete status toggled successfully",
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ message: "Internal Server Error" });
+//   }
+// });
+
 const UserAdminStatus = asyncHandler(async (req, res) => {
   const userId = req.body.userId;
   try {
-    // Find the video by its _id
+    // Find the user by its _id
     const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    // Check if deleted_at field is null or has a value
-    if (user.deleted_at === null) {
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          $set: {
-            deleted_at: new Date(),
-          },
-        },
-        { new: true }
-      );
-      const firebase_token = user.firebase_token;
-      console.log("Deactivated");
-      // Check if teacher has a firebase_token
-      if (firebase_token) {
-        const registrationToken = firebase_token;
-        const title = `${user.full_name} Deactivated`;
-        const body = `${user.full_name} Deactivated`;
 
-        // Send notification
-        const notificationResult = await sendFCMNotification(registrationToken, title, body);
-        if (notificationResult.success) {
-          console.log("Notification sent successfully:", notificationResult.response);
-        } else {
-          console.error("Failed to send notification:", notificationResult.error);
-        }
+    const newDeletedAt = user.deleted_at === null ? new Date() : null;
+
+    // Update user's deleted_at field
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: { deleted_at: newDeletedAt } }, { new: true });
+
+    // Find all courses by the user and update their deleted_at field
+    await Course.updateMany({ teacher_id: userId }, { $set: { deleted_at: newDeletedAt } });
+
+    // Handle FCM notification for user
+    if (user.firebase_token) {
+      const registrationToken = user.firebase_token;
+      const title = `${user.full_name} ${newDeletedAt ? "Deactivated" : "Activated"}`;
+      const body = `${user.full_name} ${newDeletedAt ? "Deactivated" : "Activated"}`;
+
+      const notificationResult = await sendFCMNotification(registrationToken, title, body);
+      if (notificationResult.success) {
+        console.log("Notification sent successfully:", notificationResult.response);
+      } else {
+        console.error("Failed to send notification:", notificationResult.error);
       }
-    } else {
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          $set: {
-            deleted_at: null,
-          },
-        },
-        { new: true }
-      );
-      const firebase_token = user.firebase_token;
-      console.log("Activated");
-      // Check if teacher has a firebase_token
-      if (firebase_token) {
-        const registrationToken = firebase_token;
-        const title = `${user.full_name} Activated`;
-        const body = `${user.full_name} Activated`;
+      await addNotification(null, userId, `Status ${newDeletedAt ? "Deactivated" : "Activated"}`, null, null);
+    }
 
-        // Send notification
+    // Handle FCM notification for each course of the user
+    const courses = await Course.find({ teacher_id: userId });
+    for (const course of courses) {
+      if (course.firebase_token) {
+        const registrationToken = course.firebase_token;
+        const title = `Course ${newDeletedAt ? "Deactivated" : "Activated"}`;
+        const body = `The course "${course.title}" has been ${newDeletedAt ? "deactivated" : "activated"}.`;
+
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
         if (notificationResult.success) {
           console.log("Notification sent successfully:", notificationResult.response);
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
+        await addNotification(null, userId, `Course ${newDeletedAt ? "Deactivated" : "Activated"}`, course.title, null);
       }
     }
+
     return res.status(200).json({
-      message: "User soft delete status toggled successfully",
+      message: "User and their courses' soft delete status toggled successfully",
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
 const getUnreadCount = async (req, res) => {
   try {
     const user_id = req.user._id;
@@ -1858,6 +1924,125 @@ const getAllCourse = asyncHandler(async (req, res) => {
   }
 });
 
+// const getCoursesByTeacherId = asyncHandler(async (req, res) => {
+//   const { teacher_id } = req.params; // Teacher ID from URL parameters
+//   console.log(req.params);
+//   const { page = 1, search = "", sort = "" } = req.body;
+//   const perPage = 10; // You can adjust this according to your requirements
+
+//   // Build the query based on search and teacher_id
+//   const query = {
+//     $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
+//   };
+
+//   // Sorting based on sort field
+//   let sortCriteria = {};
+//   if (sort === "startTime") {
+//     sortCriteria = { startTime: -1 }; // Sort by startTime in descending order
+//   } else if (sort === "endTime") {
+//     sortCriteria = { endTime: -1 }; // Sort by endTime in descending order
+//   } else {
+//     sortCriteria = { _id: -1 }; // Default sorting
+//   }
+
+//   try {
+//     const courses = await Course.find(query)
+//       .sort(sortCriteria)
+//       .skip((page - 1) * perPage)
+//       .limit(perPage)
+//       .populate("category_id")
+//       .populate("teacher_id");
+
+//     console.log(courses);
+
+//     const totalCount = await Course.countDocuments(query);
+//     const totalPages = Math.ceil(totalCount / perPage);
+
+//     const transformedCoursesPromises = courses.map(async (course) => {
+//       let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
+
+//       if (transformedCourse.startTime) {
+//         transformedCourse.startTime = moment(transformedCourse.startTime).format("DD/MM/YYYY");
+//       }
+//       if (transformedCourse.endTime) {
+//         transformedCourse.endTime = moment(transformedCourse.endTime).format("DD/MM/YYYY");
+//       }
+
+//       // Fetch subcategory name
+//       const category = await Category.findById(transformedCourse.category_id);
+//       const subCategory = category.subcategories.id(transformedCourse.sub_category_id);
+
+//       transformedCourse.category_name = category.category_name;
+//       transformedCourse.subcategory_name = subCategory.subcategory_name;
+
+//       // Remove the category and subcategory objects from the response
+//       delete transformedCourse.category_id.subcategories;
+//       delete transformedCourse.sub_category_id;
+
+//       return {
+//         _id: transformedCourse._id,
+//         title: transformedCourse.title,
+//         category_name: transformedCourse.category_name,
+//         subcategory_name: transformedCourse.subcategory_name,
+//         type: transformedCourse.type,
+//         startTime: transformedCourse.startTime,
+//         endTime: transformedCourse.endTime,
+//         teacher: transformedCourse.teacher_id,
+//         createdAt: transformedCourse.createdAt,
+//         updatedAt: transformedCourse.updatedAt,
+//       };
+//     });
+
+//     // Execute all promises concurrently
+//     const transformedCourses = await Promise.all(transformedCoursesPromises);
+
+//     const paginationDetails = {
+//       current_page: parseInt(page),
+//       data: transformedCourses,
+//       first_page_url: `${baseURL}api/courses/teacher/${teacher_id}?page=1`,
+//       from: (page - 1) * perPage + 1,
+//       last_page: totalPages,
+//       last_page_url: `${baseURL}api/courses/teacher/${teacher_id}?page=${totalPages}`,
+//       links: [
+//         {
+//           url: null,
+//           label: "&laquo; Previous",
+//           active: false,
+//         },
+//         {
+//           url: `${baseURL}api/courses/teacher/${teacher_id}?page=${page}`,
+//           label: page.toString(),
+//           active: true,
+//         },
+//         {
+//           url: null,
+//           label: "Next &raquo;",
+//           active: false,
+//         },
+//       ],
+//       next_page_url: null,
+//       path: `${baseURL}api/courses/teacher/${teacher_id}`,
+//       per_page: perPage,
+//       prev_page_url: null,
+//       to: (page - 1) * perPage + transformedCourses.length,
+//       total: totalCount,
+//     };
+
+//     console.log(paginationDetails);
+
+//     res.json({
+//       Courses: paginationDetails,
+//       page: page.toString(),
+//       total_rows: totalCount,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({
+//       message: "Internal Server Error",
+//       status: false,
+//     });
+//   }
+// });
 const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   const { teacher_id } = req.params; // Teacher ID from URL parameters
   console.log(req.params);
@@ -1887,17 +2072,19 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
       .populate("category_id")
       .populate("teacher_id");
 
+    console.log(courses);
+
     const totalCount = await Course.countDocuments(query);
     const totalPages = Math.ceil(totalCount / perPage);
 
     const transformedCoursesPromises = courses.map(async (course) => {
       let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
 
-      if (transformedCourse.startTime) {
-        transformedCourse.startTime = moment(transformedCourse.startTime).format("DD/MM/YYYY");
+      if (transformedCourse.startTime && transformedCourse.startDate) {
+        transformedCourse.startTime = moment(`${transformedCourse.startDate} ${transformedCourse.startTime}`, "YYYY/MM/DD h:mm A").format("DD/MM/YYYY h:mm A");
       }
-      if (transformedCourse.endTime) {
-        transformedCourse.endTime = moment(transformedCourse.endTime).format("DD/MM/YYYY");
+      if (transformedCourse.endTime && transformedCourse.endDate) {
+        transformedCourse.endTime = moment(`${transformedCourse.endDate} ${transformedCourse.endTime}`, "YYYY/MM/DD h:mm A").format("DD/MM/YYYY h:mm A");
       }
 
       // Fetch subcategory name
@@ -1959,8 +2146,6 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
       to: (page - 1) * perPage + transformedCourses.length,
       total: totalCount,
     };
-
-    console.log(paginationDetails);
 
     res.json({
       Courses: paginationDetails,
@@ -2133,11 +2318,13 @@ const updateUserPayment = async (req, res, next) => {
 
       // Send notification
       const notificationResult = await sendFCMNotification(registrationToken, title, body);
+
       if (notificationResult.success) {
         console.log("Notification sent successfully:", notificationResult.response);
       } else {
         console.error("Failed to send notification:", notificationResult.error);
       }
+      await addNotification(null, userId, "Payment Updated", null, null);
     }
   }
 

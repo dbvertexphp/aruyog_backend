@@ -66,6 +66,30 @@ const getTeacherNotifications = asyncHandler(async (req, res) => {
   }
 });
 
+const getTeacherNotificationsByAdmin = asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  try {
+    const count = await TeacherNotification.countDocuments();
+
+    const notifications = await TeacherNotification.find().sort({ created_at: -1 }).populate("user_id", "full_name profile_pic").skip(skip).limit(limit).exec();
+
+    const totalPages = Math.ceil(count / limit);
+
+    res.status(200).json({
+      notifications,
+      totalPages,
+      currentPage: page,
+      totalNotifications: count,
+    });
+  } catch (error) {
+    console.error("Error fetching notifications:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 const sendCourseNotification = asyncHandler(async (req, res) => {
   const { course_id, meeting_id, call_id, attended_at } = req.body;
   const teacher_id = req.headers.userID;
@@ -240,4 +264,5 @@ module.exports = {
   sendCourseNotification,
   getMissingAttendanceDays,
   resetCourseMeeting,
+  getTeacherNotificationsByAdmin,
 };

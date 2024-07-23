@@ -18,6 +18,7 @@ const { log } = require("util");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Transaction = require("../models/transactionModel.js");
 const { sendFCMNotification } = require("./notificationControllers");
+const { addNotification } = require("./teacherNotificationController");
 
 dotenv.config();
 
@@ -660,6 +661,7 @@ const CourseActiveStatus = async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
+        await addNotification(null, teacher_id, "Course Deactivated", user.title, null);
       }
     } else {
       const updatedUser = await Course.findByIdAndUpdate(
@@ -692,6 +694,7 @@ const CourseActiveStatus = async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
+        await addNotification(null, teacher_id, "Course Activated", user.title, null);
       }
     }
     return res.status(200).json({

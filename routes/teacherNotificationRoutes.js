@@ -1,6 +1,6 @@
 // routes/notificationRoutes.js
 const express = require("express");
-const { getTeacherNotifications, sendCourseNotification, getMissingAttendanceDays, resetCourseMeeting } = require("../controllers/teacherNotificationController");
+const { getTeacherNotifications, sendCourseNotification, getMissingAttendanceDays, resetCourseMeeting, getTeacherNotificationsByAdmin } = require("../controllers/teacherNotificationController");
 const protect = require("../middleware/authMiddleware.js");
 
 const teacherNotificationsRoutes = express.Router();
@@ -10,5 +10,6 @@ teacherNotificationsRoutes.route("/getTeacherNotifications").get(protect, getTea
 teacherNotificationsRoutes.route("/sendCourseNotification").post(protect, sendCourseNotification);
 teacherNotificationsRoutes.route("/getMissingAttendanceDays").post(protect, getMissingAttendanceDays);
 teacherNotificationsRoutes.route("/resetCourseMeeting").post(protect, resetCourseMeeting);
+teacherNotificationsRoutes.route("/getTeacherNotificationsByAdmin").get(protect, getTeacherNotificationsByAdmin);
 
 module.exports = { teacherNotificationsRoutes };
