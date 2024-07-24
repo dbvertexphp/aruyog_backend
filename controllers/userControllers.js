@@ -2300,7 +2300,7 @@ const updateUserPayment = async (req, res, next) => {
   const user = await User.findById(userId);
 
   if (!user) {
-    return next(new ErrorHandler("User not found.", 404));
+    return next(new ErrorHandler("User Not found.", 404));
   }
 
   // Assuming user has only one payment object to be updated
