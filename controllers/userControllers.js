@@ -2294,7 +2294,7 @@ const updateUserPayment = async (req, res, next) => {
   const { userId, payment_id } = req.body;
 
   if (!userId || !payment_id) {
-    return next(new ErrorHandler("Please provide userId and payment_id.", 400));
+    return next(new ErrorHandler("Please Provide userId and payment_id.", 400));
   }
 
   const user = await User.findById(userId);
