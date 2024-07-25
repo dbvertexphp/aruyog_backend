@@ -55,6 +55,8 @@ const getTeacherNotifications = asyncHandler(async (req, res) => {
 
     const totalPages = Math.ceil(count / perPage);
 
+    await TeacherNotification.updateMany({ teacher_id: user_id, read: false }, { $set: { read: true } });
+
     res.status(200).json({
       notifications,
       totalPages,

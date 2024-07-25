@@ -1590,8 +1590,10 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
     // Handle FCM notification for user
     if (user.firebase_token) {
       const registrationToken = user.firebase_token;
+      const active = "Your account has been activated by an administrator.";
+      const deactive = "Your account has been deactivated by an administrator. Please contact support for assistance.";
       const title = `${user.full_name} ${newDeletedAt ? "Deactivated" : "Activated"}`;
-      const body = `${user.full_name} ${newDeletedAt ? "Deactivated" : "Activated"}`;
+      const body = `${user.full_name} ${newDeletedAt ? deactive : active}`;
 
       const notificationResult = await sendFCMNotification(registrationToken, title, body);
       if (notificationResult.success) {
@@ -1599,7 +1601,7 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
       } else {
         console.error("Failed to send notification:", notificationResult.error);
       }
-      await addNotification(null, userId, `Status ${newDeletedAt ? "Deactivated" : "Activated"}`, null, null);
+      await addNotification(null, userId, `${newDeletedAt ? deactive : active}`, null, null);
     }
 
     // Handle FCM notification for each course of the user
@@ -1858,6 +1860,7 @@ const getAllCourse = asyncHandler(async (req, res) => {
 
     // Fetch courses with pagination
     const courses = await Course.find()
+      .sort({ _id: -1 })
       .populate("category_id")
       .populate("teacher_id")
       .skip((page - 1) * limit)
@@ -2362,11 +2365,23 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
       });
     }
 
-    // Fetch user information for each course
+    // Extracting all userIds from courses
     const userIds = courses.reduce((acc, course) => {
       acc.push(...course.userIds);
       return acc;
     }, []);
+
+    // Fetching transactions to get purchase dates
+    const transactions = await Transaction.find({
+      user_id: { $in: userIds },
+      course_id: { $in: courses.map((course) => course._id) },
+    }).exec();
+
+    // Mapping transaction data to course IDs
+    const purchaseDateMap = transactions.reduce((acc, transaction) => {
+      acc[transaction.course_id] = transaction.datetime;
+      return acc;
+    }, {});
 
     const users = await User.find(
       { _id: { $in: userIds } },
@@ -2380,7 +2395,7 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
     );
 
     const userMap = users.reduce((acc, user) => {
-      acc[user._id] = user;
+      acc[user._id] = user.toObject(); // Convert user to plain object
       return acc;
     }, {});
 
@@ -2398,11 +2413,20 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
 
       // Calculate days array between startDate and endDate
       const daysArray = calculateDaysArray(course.startDate, course.endDate);
-      console.log(daysArray);
+
       return {
         ...course.toObject(),
         courseAvailable,
-        users: course.userIds.map((userId) => userMap[userId]),
+        users: course.userIds.map((userId) => {
+          const user = userMap[userId];
+          // Find the transaction for this user and course
+          const transaction = transactions.find((trans) => trans.user_id.equals(userId) && trans.course_id.equals(course._id));
+          const userCoursePurchaseDate = transaction ? transaction.datetime : null;
+          return {
+            ...user,
+            userCoursePurchaseDate: userCoursePurchaseDate, // Add the purchase date
+          };
+        }),
         askDemo,
         days: daysArray,
         course_image: course.course_image,
@@ -2609,8 +2633,13 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
   const { search } = req.query; // Assuming search query parameter for teacher name search
 
+  const teacher_ids = user_id;
+
+  const teacherNotificationData = await TeacherNotification.find({ teacher_id: teacher_ids });
+  const unreadCount = teacherNotificationData.filter((notification) => !notification.read).length;
+
   if (!subcategory_id || !user_id) {
-    return res.status(400).json({ message: "Invalid input" });
+    return res.status(400).json({ message: "Invalid input", notificationCount: unreadCount });
   }
 
   try {
@@ -2623,6 +2652,7 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
     if (!courses.length) {
       return res.status(404).json({
         message: "No courses found for the given subcategory ID",
+        notificationCount: unreadCount,
       });
     }
 
@@ -2661,7 +2691,7 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
       })
     );
 
-    res.status(200).json({ teachers: teachersWithDetails });
+    res.status(200).json({ teachers: teachersWithDetails, notificationCount: unreadCount });
   } catch (error) {
     console.error("Error fetching teachers:", error.message);
     res.status(500).json({ error: "Internal Server Error" });

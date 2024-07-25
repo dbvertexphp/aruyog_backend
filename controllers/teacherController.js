@@ -19,6 +19,7 @@ const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Transaction = require("../models/transactionModel.js");
 const { sendFCMNotification } = require("./notificationControllers");
 const { addNotification } = require("./teacherNotificationController");
+const TeacherNotification = require("../models/teacherNotificationModel");
 
 dotenv.config();
 
@@ -423,10 +424,16 @@ const getTodayCourse = asyncHandler(async (req, res) => {
       .sort({ startTime: 1 }) // Sort by startTime ascending order
       .exec();
 
+    const teacher_ids = teacherId;
+
+    const teacherNotificationData = await TeacherNotification.find({ teacher_id: teacher_ids });
+    const unreadCount = teacherNotificationData.filter((notification) => !notification.read).length;
+
     if (!courses || courses.length === 0) {
       return res.status(200).json({
         message: "Course Not Found",
         status: false,
+        notificationCount: unreadCount,
       });
     }
 
@@ -462,7 +469,7 @@ const getTodayCourse = asyncHandler(async (req, res) => {
 
     // Mapping userIds to user details for quick lookup
     const userMap = users.reduce((acc, user) => {
-      acc[user._id] = user;
+      acc[user._id] = user.toObject(); // Convert user to plain object
       return acc;
     }, {});
 
@@ -472,14 +479,25 @@ const getTodayCourse = asyncHandler(async (req, res) => {
 
       return {
         ...course.toObject({ getters: true, virtuals: true }),
-        users: course.userIds.map((userId) => userMap[userId]),
+        users: course.userIds.map((userId) => {
+          const user = userMap[userId];
+          // Find the transaction for this user and course
+          const transaction = transactions.find((trans) => trans.user_id.equals(userId) && trans.course_id.equals(course._id));
+          const userCoursePurchaseDate = transaction ? transaction.datetime : null;
+          return {
+            ...user,
+            userCoursePurchaseDate: userCoursePurchaseDate, // Add the purchase date
+          };
+        }),
         days: daysArray,
         course_image: course.course_image,
         purchaseDate: purchaseDateMap[course._id] || null,
       };
     });
 
-    res.status(200).json({ courses: coursesWithUsersAndDays });
+    console.log("Number of unread notifications:", unreadCount);
+
+    res.status(200).json({ courses: coursesWithUsersAndDays, notificationCount: unreadCount });
   } catch (error) {
     console.error("Error fetching today's courses:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -489,15 +507,13 @@ const getTodayCourse = asyncHandler(async (req, res) => {
 const getMyClasses = asyncHandler(async (req, res) => {
   const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
   const currentDate = new Date(); // Get current date
-  const formattedCurrentDate = formatDate(currentDate); // Format date to YYYY/MM/DD
-
+  const currentMonth = currentDate.getMonth() + 1;
   try {
-    // Find courses where startDate matches the current date and teacher_id matches
+    // Find courses where startDate matches the current month and teacher_id matches
     const courses = await Course.find({
       teacher_id,
       deleted_at: null,
-      startDate: { $lte: formattedCurrentDate }, // Format current date to match stored
-      endDate: { $gte: formattedCurrentDate },
+      $expr: { $eq: [{ $month: { $dateFromString: { dateString: "$startDate", format: "%Y/%m/%d" } } }, currentMonth] },
     })
       .sort({ startTime: -1 }) // Sort by startTime descending order
       .exec();
@@ -539,7 +555,7 @@ const getMyClasses = asyncHandler(async (req, res) => {
     );
 
     const userMap = users.reduce((acc, user) => {
-      acc[user._id] = user;
+      acc[user._id] = user.toObject(); // Convert user to plain object
       return acc;
     }, {});
 
@@ -555,7 +571,16 @@ const getMyClasses = asyncHandler(async (req, res) => {
       // Add user details to each course
       const courseWithUsers = {
         ...course.toObject({ getters: true, virtuals: true }),
-        users: course.userIds.map((userId) => userMap[userId]),
+        users: course.userIds.map((userId) => {
+          const user = userMap[userId];
+          // Find the transaction for this user and course
+          const transaction = transactions.find((trans) => trans.user_id.equals(userId) && trans.course_id.equals(course._id));
+          const userCoursePurchaseDate = transaction ? transaction.datetime : null;
+          return {
+            ...user,
+            userCoursePurchaseDate: userCoursePurchaseDate, // Add the purchase date
+          };
+        }),
         days: daysArray,
         course_image: course.course_image,
         purchaseDate: purchaseDateMap[course._id] || null,
@@ -652,7 +677,7 @@ const CourseActiveStatus = async (req, res) => {
       if (teacher.firebase_token) {
         const registrationToken = teacher.firebase_token;
         const title = `Course Deactivated`;
-        const body = `The course "${user.title}" has been deactivated.`;
+        const body = `${user.title} has been deactivated.`;
 
         // Send notification
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
@@ -661,7 +686,7 @@ const CourseActiveStatus = async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
-        await addNotification(null, teacher_id, "Course Deactivated", user.title, null);
+        await addNotification(null, teacher_id, "has been deactivated ", user.title, null);
       }
     } else {
       const updatedUser = await Course.findByIdAndUpdate(
@@ -680,12 +705,11 @@ const CourseActiveStatus = async (req, res) => {
       if (!teacher) {
         return res.status(404).json({ message: "Teacher not found" });
       }
-      console.log("Activated");
       // Check if teacher has a firebase_token
       if (teacher.firebase_token) {
         const registrationToken = teacher.firebase_token;
         const title = `Course Activated`;
-        const body = `The course "${user.title}" has been Activated.`;
+        const body = `${user.title} has been activated.`;
 
         // Send notification
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
@@ -694,7 +718,7 @@ const CourseActiveStatus = async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
-        await addNotification(null, teacher_id, "Course Activated", user.title, null);
+        await addNotification(null, teacher_id, "has been activated", user.title, null);
       }
     }
     return res.status(200).json({
