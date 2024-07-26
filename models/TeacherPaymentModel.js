@@ -2,10 +2,16 @@ const mongoose = require("mongoose");
 
 const teacherPaymentSchema = new mongoose.Schema(
   {
-    master: {
+    master_single: {
       type: Number,
     },
-    advance: {
+    master_group: {
+      type: Number,
+    },
+    advance_single: {
+      type: Number,
+    },
+    advance_group: {
       type: Number,
     },
   },

@@ -41,10 +41,14 @@ const {
   getAllCourse,
   getCoursesByTeacherId,
   getMasterAndAdvancePayments,
-  addAdvancePayment,
-  addMasterPayment,
-  updateMasterPayment,
-  updateAdvancePayment,
+  addAdvanceSinglePayment,
+  addAdvanceGroupPayment,
+  addMasterSinglePayment,
+  addMasterGroupPayment,
+  updateMasterSinglePayment,
+  updateMasterGroupPayment,
+  updateAdvanceSinglePayment,
+  updateAdvanceGroupPayment,
   updateUserPayment,
   getTeacherAndCourseByTeacher_IdAndType,
   addFavoriteTeacher,
@@ -106,12 +110,16 @@ userRoutes.route("/calculatePayment").post(protect, Authorization(["teacher"]), 
 userRoutes.route("/getTeacherPaymentStatuses").get(protect, Authorization(["admin"]), getTeacherPaymentStatuses);
 userRoutes.route("/getTeacherPaymentStatusById/:teacher_id").get(protect, Authorization(["admin"]), getTeacherPaymentStatusById);
 userRoutes.route("/addTeacherPaymentStatus").post(protect, Authorization(["admin"]), addTeacherPaymentStatus);
-userRoutes.route("/addMasterPayment").post(protect, Authorization(["admin"]), addMasterPayment);
-userRoutes.route("/updateMasterPayment").post(protect, Authorization(["admin"]), updateMasterPayment);
+userRoutes.route("/addMasterSinglePayment").post(protect, Authorization(["admin"]), addMasterSinglePayment);
+userRoutes.route("/addMasterGroupPayment").post(protect, Authorization(["admin"]), addMasterGroupPayment);
+userRoutes.route("/updateMasterSinglePayment").post(protect, Authorization(["admin"]), updateMasterSinglePayment);
+userRoutes.route("/updateMasterGroupPayment").post(protect, Authorization(["admin"]), updateMasterGroupPayment);
 userRoutes.route("/getStudentsPayment").get(protect, Authorization(["admin"]), getStudentsPayment);
 userRoutes.route("/getTotalAmount").get(protect, Authorization(["admin"]), getTotalAmount);
-userRoutes.route("/addAdvancePayment").post(protect, Authorization(["admin"]), addAdvancePayment);
-userRoutes.route("/updateAdvancePayment").post(protect, Authorization(["admin"]), updateAdvancePayment);
+userRoutes.route("/addAdvanceSinglePayment").post(protect, Authorization(["admin"]), addAdvanceSinglePayment);
+userRoutes.route("/addAdvanceGroupPayment").post(protect, Authorization(["admin"]), addAdvanceGroupPayment);
+userRoutes.route("/updateAdvanceSinglePayment").post(protect, Authorization(["admin"]), updateAdvanceSinglePayment);
+userRoutes.route("/updateAdvanceGroupPayment").post(protect, Authorization(["admin"]), updateAdvanceGroupPayment);
 userRoutes.route("/getMasterAndAdvancePayments").get(protect, Authorization(["admin"]), getMasterAndAdvancePayments);
 userRoutes.route("/updateUserPayment").put(protect, Authorization(["admin"]), updateUserPayment);
 userRoutes.route("/getAllCourse").get(protect, Authorization(["admin"]), getAllCourse);

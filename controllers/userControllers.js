@@ -915,12 +915,18 @@ const getAllTeachersByAdmin = asyncHandler(async (req, res) => {
         let paymentType;
         let paymentAmount;
 
-        if (transformedTeacher.payment_id.advance !== undefined) {
-          paymentType = "advance";
-          paymentAmount = transformedTeacher.payment_id.advance;
-        } else if (transformedTeacher.payment_id.master !== undefined) {
-          paymentType = "master";
-          paymentAmount = transformedTeacher.payment_id.master;
+        if (transformedTeacher.payment_id.advance_single !== undefined) {
+          paymentType = "advance_single";
+          paymentAmount = transformedTeacher.payment_id.advance_single;
+        } else if (transformedTeacher.payment_id.advance_group !== undefined) {
+          paymentType = "advance_group";
+          paymentAmount = transformedTeacher.payment_id.advance_group;
+        } else if (transformedTeacher.payment_id.master_single !== undefined) {
+          paymentType = "master_single";
+          paymentAmount = transformedTeacher.payment_id.master_single;
+        } else if (transformedTeacher.payment_id.master_group !== undefined) {
+          paymentType = "master_group";
+          paymentAmount = transformedTeacher.payment_id.master_group;
         } else {
           // Handle case where neither advance nor master is defined
           paymentType = null;
@@ -1927,125 +1933,6 @@ const getAllCourse = asyncHandler(async (req, res) => {
   }
 });
 
-// const getCoursesByTeacherId = asyncHandler(async (req, res) => {
-//   const { teacher_id } = req.params; // Teacher ID from URL parameters
-//   console.log(req.params);
-//   const { page = 1, search = "", sort = "" } = req.body;
-//   const perPage = 10; // You can adjust this according to your requirements
-
-//   // Build the query based on search and teacher_id
-//   const query = {
-//     $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
-//   };
-
-//   // Sorting based on sort field
-//   let sortCriteria = {};
-//   if (sort === "startTime") {
-//     sortCriteria = { startTime: -1 }; // Sort by startTime in descending order
-//   } else if (sort === "endTime") {
-//     sortCriteria = { endTime: -1 }; // Sort by endTime in descending order
-//   } else {
-//     sortCriteria = { _id: -1 }; // Default sorting
-//   }
-
-//   try {
-//     const courses = await Course.find(query)
-//       .sort(sortCriteria)
-//       .skip((page - 1) * perPage)
-//       .limit(perPage)
-//       .populate("category_id")
-//       .populate("teacher_id");
-
-//     console.log(courses);
-
-//     const totalCount = await Course.countDocuments(query);
-//     const totalPages = Math.ceil(totalCount / perPage);
-
-//     const transformedCoursesPromises = courses.map(async (course) => {
-//       let transformedCourse = { ...course.toObject() }; // Convert Mongoose document to plain JavaScript object
-
-//       if (transformedCourse.startTime) {
-//         transformedCourse.startTime = moment(transformedCourse.startTime).format("DD/MM/YYYY");
-//       }
-//       if (transformedCourse.endTime) {
-//         transformedCourse.endTime = moment(transformedCourse.endTime).format("DD/MM/YYYY");
-//       }
-
-//       // Fetch subcategory name
-//       const category = await Category.findById(transformedCourse.category_id);
-//       const subCategory = category.subcategories.id(transformedCourse.sub_category_id);
-
-//       transformedCourse.category_name = category.category_name;
-//       transformedCourse.subcategory_name = subCategory.subcategory_name;
-
-//       // Remove the category and subcategory objects from the response
-//       delete transformedCourse.category_id.subcategories;
-//       delete transformedCourse.sub_category_id;
-
-//       return {
-//         _id: transformedCourse._id,
-//         title: transformedCourse.title,
-//         category_name: transformedCourse.category_name,
-//         subcategory_name: transformedCourse.subcategory_name,
-//         type: transformedCourse.type,
-//         startTime: transformedCourse.startTime,
-//         endTime: transformedCourse.endTime,
-//         teacher: transformedCourse.teacher_id,
-//         createdAt: transformedCourse.createdAt,
-//         updatedAt: transformedCourse.updatedAt,
-//       };
-//     });
-
-//     // Execute all promises concurrently
-//     const transformedCourses = await Promise.all(transformedCoursesPromises);
-
-//     const paginationDetails = {
-//       current_page: parseInt(page),
-//       data: transformedCourses,
-//       first_page_url: `${baseURL}api/courses/teacher/${teacher_id}?page=1`,
-//       from: (page - 1) * perPage + 1,
-//       last_page: totalPages,
-//       last_page_url: `${baseURL}api/courses/teacher/${teacher_id}?page=${totalPages}`,
-//       links: [
-//         {
-//           url: null,
-//           label: "&laquo; Previous",
-//           active: false,
-//         },
-//         {
-//           url: `${baseURL}api/courses/teacher/${teacher_id}?page=${page}`,
-//           label: page.toString(),
-//           active: true,
-//         },
-//         {
-//           url: null,
-//           label: "Next &raquo;",
-//           active: false,
-//         },
-//       ],
-//       next_page_url: null,
-//       path: `${baseURL}api/courses/teacher/${teacher_id}`,
-//       per_page: perPage,
-//       prev_page_url: null,
-//       to: (page - 1) * perPage + transformedCourses.length,
-//       total: totalCount,
-//     };
-
-//     console.log(paginationDetails);
-
-//     res.json({
-//       Courses: paginationDetails,
-//       page: page.toString(),
-//       total_rows: totalCount,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({
-//       message: "Internal Server Error",
-//       status: false,
-//     });
-//   }
-// });
 const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   const { teacher_id } = req.params; // Teacher ID from URL parameters
   console.log(req.params);
@@ -2164,95 +2051,185 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   }
 });
 
-const addMasterPayment = asyncHandler(async (req, res, next) => {
-  let { master } = req.body;
+const addMasterSinglePayment = asyncHandler(async (req, res, next) => {
+  let { master_single } = req.body;
 
   // Convert string values to numbers if they exist
-  master = master ? parseFloat(master) : undefined;
+  master_single = master_single ? parseFloat(master_single) : undefined;
 
-  if (isNaN(master) || master === 0) {
+  if (isNaN(master_single) || master_single === 0) {
     return next(new ErrorHandler("Please enter a valid master payment amount.", 400));
   }
 
-  const masterPayment = new TeacherPayment({ master });
-  await masterPayment.save();
+  const masterSinglePayment = new TeacherPayment({ master_single });
+  await masterSinglePayment.save();
 
   res.status(200).json({
-    message: "Master payment added successfully",
-    masterPayment,
+    message: "Master Single payment added successfully",
+    masterSinglePayment,
     status: true,
   });
 });
 
-const updateMasterPayment = asyncHandler(async (req, res, next) => {
-  let { master, id } = req.body;
-  console.log(req.body);
-  // Convert string values to numbers if they exist
-  master = master ? parseFloat(master) : undefined;
+const addMasterGroupPayment = asyncHandler(async (req, res, next) => {
+  let { master_group } = req.body;
 
-  if (isNaN(master) || master === 0) {
+  // Convert string values to numbers if they exist
+  master_group = master_group ? parseFloat(master_group) : undefined;
+
+  if (isNaN(master_group) || master_group === 0) {
     return next(new ErrorHandler("Please enter a valid master payment amount.", 400));
   }
 
-  const masterPayment = await TeacherPayment.findById(id);
+  const masterGroupPayment = new TeacherPayment({ master_group });
+  await masterGroupPayment.save();
 
-  if (!masterPayment) {
+  res.status(200).json({
+    message: "Master Single payment added successfully",
+    masterGroupPayment,
+    status: true,
+  });
+});
+const updateMasterSinglePayment = asyncHandler(async (req, res, next) => {
+  let { master_single, id } = req.body;
+  console.log(req.body);
+  // Convert string values to numbers if they exist
+  master_single = master_single ? parseFloat(master_single) : undefined;
+
+  if (isNaN(master_single) || master_single === 0) {
+    return next(new ErrorHandler("Please enter a valid master_single payment amount.", 400));
+  }
+
+  const masterSinglePayment = await TeacherPayment.findById(id);
+
+  if (!masterSinglePayment) {
     return next(new ErrorHandler("Master payment not found.", 404));
   }
 
-  masterPayment.master = master;
+  masterSinglePayment.master_single = master_single;
 
-  await masterPayment.save();
+  await masterSinglePayment.save();
 
   res.status(200).json({
     message: "Master payment updated successfully",
-    masterPayment,
+    masterSinglePayment,
+    status: true,
+  });
+});
+const updateMasterGroupPayment = asyncHandler(async (req, res, next) => {
+  let { master_group, id } = req.body;
+  console.log(req.body);
+  // Convert string values to numbers if they exist
+  master_group = master_group ? parseFloat(master_group) : undefined;
+
+  if (isNaN(master_group) || master_group === 0) {
+    return next(new ErrorHandler("Please enter a valid master_group payment amount.", 400));
+  }
+
+  const masterGroupPayment = await TeacherPayment.findById(id);
+
+  if (!masterGroupPayment) {
+    return next(new ErrorHandler("Master payment not found.", 404));
+  }
+
+  masterGroupPayment.master_group = master_group;
+
+  await masterGroupPayment.save();
+
+  res.status(200).json({
+    message: "Master payment updated successfully",
+    masterGroupPayment,
     status: true,
   });
 });
 
-const addAdvancePayment = asyncHandler(async (req, res, next) => {
-  let { advance } = req.body;
+const addAdvanceSinglePayment = asyncHandler(async (req, res, next) => {
+  let { advance_single } = req.body;
   // Convert string values to numbers if they exist
-  advance = advance ? parseFloat(advance) : undefined;
+  advance_single = advance_single ? parseFloat(advance_single) : undefined;
 
-  if (isNaN(advance) || advance === 0) {
+  if (isNaN(advance_single) || advance_single === 0) {
     return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
   }
 
-  const advancePayment = new TeacherPayment({ advance });
-  await advancePayment.save();
+  const advanceSinglePayment = new TeacherPayment({ advance_single });
+  await advanceSinglePayment.save();
 
   res.status(200).json({
     message: "Advance payment added successfully",
-    advancePayment,
+    advanceSinglePayment,
+    status: true,
+  });
+});
+const addAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
+  let { advance_group } = req.body;
+  // Convert string values to numbers if they exist
+  advance_group = advance_group ? parseFloat(advance_group) : undefined;
+
+  if (isNaN(advance_group) || advance_group === 0) {
+    return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
+  }
+
+  const advanceGroupPayment = new TeacherPayment({ advance_group });
+  await advanceGroupPayment.save();
+
+  res.status(200).json({
+    message: "Advance payment added successfully",
+    advanceGroupPayment,
     status: true,
   });
 });
 
-const updateAdvancePayment = asyncHandler(async (req, res, next) => {
-  let { advance, id } = req.body;
+const updateAdvanceSinglePayment = asyncHandler(async (req, res, next) => {
+  let { advance_single, id } = req.body;
 
   // Convert string values to numbers if they exist
-  advance = advance ? parseFloat(advance) : undefined;
+  advance_single = advance_single ? parseFloat(advance_single) : undefined;
 
-  if (isNaN(advance) || advance === 0) {
-    return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
+  if (isNaN(advance_single) || advance_single === 0) {
+    return next(new ErrorHandler("Please enter a valid advance_single payment amount.", 400));
   }
 
-  const advancePayment = await TeacherPayment.findById(id);
+  const advanceSinglePayment = await TeacherPayment.findById(id);
 
-  if (!advancePayment) {
+  if (!advanceSinglePayment) {
     return next(new ErrorHandler("Advance payment not found.", 404));
   }
 
-  advancePayment.advance = advance;
+  advanceSinglePayment.advance_single = advance_single;
 
-  await advancePayment.save();
+  await advanceSinglePayment.save();
 
   res.status(200).json({
     message: "Advance payment updated successfully",
-    advancePayment,
+    advanceSinglePayment,
+    status: true,
+  });
+});
+
+const updateAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
+  let { advance_group, id } = req.body;
+  console.log(req.body);
+  // Convert string values to numbers if they exist
+  advance_group = advance_group ? parseFloat(advance_group) : undefined;
+
+  if (isNaN(advance_group) || advance_group === 0) {
+    return next(new ErrorHandler("Please enter a valid advance_group payment amount.", 400));
+  }
+
+  const advanceGroupPayment = await TeacherPayment.findById(id);
+
+  if (!advanceGroupPayment) {
+    return next(new ErrorHandler("Advance payment not found.", 404));
+  }
+
+  advanceGroupPayment.advance_group = advance_group;
+
+  await advanceGroupPayment.save();
+
+  res.status(200).json({
+    message: "Advance payment updated successfully",
+    advanceGroupPayment,
     status: true,
   });
 });
@@ -2265,27 +2242,47 @@ const getMasterAndAdvancePayments = asyncHandler(async (req, res) => {
 
   payments.forEach((payment) => {
     // Add advance payment if exists
-    if (payment.advance) {
+    if (payment.advance_single) {
       formattedPayments.push({
         _id: payment._id,
-        Payment: payment.advance,
-        Type: "advance",
+        Payment: payment.advance_single,
+        Type: "advance_single",
+        createdAt: payment.createdAt,
+        updatedAt: payment.updatedAt,
+      });
+    }
+
+    if (payment.advance_group) {
+      formattedPayments.push({
+        _id: payment._id,
+        Payment: payment.advance_group,
+        Type: "advance_group",
         createdAt: payment.createdAt,
         updatedAt: payment.updatedAt,
       });
     }
 
     // Add master payment if exists
-    if (payment.master) {
+    if (payment.master_single) {
       formattedPayments.push({
         _id: payment._id,
-        Payment: payment.master,
-        Type: "master",
+        Payment: payment.master_single,
+        Type: "master_single",
+        createdAt: payment.createdAt,
+        updatedAt: payment.updatedAt,
+      });
+    }
+    if (payment.master_group) {
+      formattedPayments.push({
+        _id: payment._id,
+        Payment: payment.master_group,
+        Type: "master_group",
         createdAt: payment.createdAt,
         updatedAt: payment.updatedAt,
       });
     }
   });
+  console.log(formattedPayments);
 
   res.status(200).json({
     message: "Payments retrieved successfully",
@@ -3106,10 +3103,14 @@ module.exports = {
   getAllCourse,
   getCoursesByTeacherId,
   getMasterAndAdvancePayments,
-  addAdvancePayment,
-  addMasterPayment,
-  updateMasterPayment,
-  updateAdvancePayment,
+  addAdvanceSinglePayment,
+  addAdvanceGroupPayment,
+  addMasterSinglePayment,
+  addMasterGroupPayment,
+  updateMasterSinglePayment,
+  updateMasterGroupPayment,
+  updateAdvanceSinglePayment,
+  updateAdvanceGroupPayment,
   updateUserPayment,
   getTeacherAndCourseByTeacher_IdAndType,
   addFavoriteTeacher,
