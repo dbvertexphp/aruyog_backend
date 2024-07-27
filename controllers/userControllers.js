@@ -257,8 +257,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
         otp: user.otp,
         firebase_token,
         profile_pic: user.profile_pic, // Include profile_pic in response
-        // ConnectyCube_token: user.ConnectyCube_token,
-        // ConnectyCube_id: user.ConnectyCube_id,
         token: generateToken(user._id),
         status: true,
       });
@@ -878,7 +876,7 @@ const getAllTeachersByAdmin = asyncHandler(async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const user_id = req.headers.userID;
+    const user_id = req.headers.userid;
 
     // Search keyword from query params
     const searchKeyword = req.query.search || "";
@@ -889,12 +887,7 @@ const getAllTeachersByAdmin = asyncHandler(async (req, res) => {
       $or: [{ first_name: { $regex: searchKeyword, $options: "i" } }, { last_name: { $regex: searchKeyword, $options: "i" } }],
     };
 
-    const teachers = await User.find(query)
-      .populate({
-        path: "payment_id",
-      })
-      .skip(skip)
-      .limit(limit);
+    const teachers = await User.find(query).skip(skip).limit(limit);
 
     const totalTeachers = await User.countDocuments(query);
 
@@ -906,49 +899,46 @@ const getAllTeachersByAdmin = asyncHandler(async (req, res) => {
     // Map each teacher to an array of promises
     const transformedTeachersPromises = teachers.map(async (teacher) => {
       let transformedTeacher = { ...teacher.toObject() }; // Convert Mongoose document to plain JavaScript object
-      if (transformedTeacher.watch_time) {
-        transformedTeacher.watch_time = convertSecondsToReadableTimeAdmin(transformedTeacher.watch_time);
-      }
-
-      // Determine the payment type dynamically based on payment_id
-      if (transformedTeacher.payment_id) {
-        let paymentType;
-        let paymentAmount;
-
-        if (transformedTeacher.payment_id.advance_single !== undefined) {
-          paymentType = "advance_single";
-          paymentAmount = transformedTeacher.payment_id.advance_single;
-        } else if (transformedTeacher.payment_id.advance_group !== undefined) {
-          paymentType = "advance_group";
-          paymentAmount = transformedTeacher.payment_id.advance_group;
-        } else if (transformedTeacher.payment_id.master_single !== undefined) {
-          paymentType = "master_single";
-          paymentAmount = transformedTeacher.payment_id.master_single;
-        } else if (transformedTeacher.payment_id.master_group !== undefined) {
-          paymentType = "master_group";
-          paymentAmount = transformedTeacher.payment_id.master_group;
-        } else {
-          // Handle case where neither advance nor master is defined
-          paymentType = null;
-          paymentAmount = null;
-        }
-
-        transformedTeacher.payment = {
-          type: paymentType,
-          amount: paymentAmount,
-        };
-        delete transformedTeacher.payment_id; // Remove payment_id from the teacher object
-      } else {
-        transformedTeacher.payment = {
-          type: null,
-          amount: null,
-        };
-      }
 
       // Add favorite field
       transformedTeacher.favorite = favoriteTeacherIds.includes(teacher._id.toString());
+      console.log(teacher);
 
-      return { teacher: transformedTeacher };
+      let paymentDetails = {};
+
+      // Fetch payment details from TeacherPayment model for groupPaymentId
+      if (teacher.groupPaymentId) {
+        const groupPayment = await TeacherPayment.findById(teacher.groupPaymentId);
+        console.log(groupPayment);
+
+        if (groupPayment) {
+          paymentDetails.groupPayment = {
+            type: groupPayment.type,
+            amount: groupPayment.amount,
+            payment_Id: groupPayment._id,
+          };
+        }
+      }
+
+      // Fetch payment details from TeacherPayment model for singlePaymentId
+      if (teacher.singlePaymentId) {
+        const singlePayment = await TeacherPayment.findById(teacher.singlePaymentId);
+        console.log(singlePayment);
+        if (singlePayment) {
+          paymentDetails.singlePayment = {
+            type: singlePayment.type,
+            amount: singlePayment.amount,
+            payment_Id: singlePayment._id,
+          };
+        }
+      }
+
+      // Add debug log to inspect payment details
+      console.log("Payment Details:", paymentDetails);
+
+      transformedTeacher.payment = paymentDetails;
+
+      return transformedTeacher;
     });
 
     // Execute all promises concurrently
@@ -956,7 +946,6 @@ const getAllTeachersByAdmin = asyncHandler(async (req, res) => {
 
     res.json({
       Teachers: transformedTeachers,
-
       total_rows: totalTeachers,
       current_page: page,
       total_pages: Math.ceil(totalTeachers / limit),
@@ -2061,7 +2050,11 @@ const addMasterSinglePayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Please enter a valid master payment amount.", 400));
   }
 
-  const masterSinglePayment = new TeacherPayment({ master_single });
+  const masterSinglePayment = new TeacherPayment({
+    type: "master_single", // Set type
+    amount: master_single, // Set amount
+  });
+
   await masterSinglePayment.save();
 
   res.status(200).json({
@@ -2081,18 +2074,22 @@ const addMasterGroupPayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Please enter a valid master payment amount.", 400));
   }
 
-  const masterGroupPayment = new TeacherPayment({ master_group });
+  const masterGroupPayment = new TeacherPayment({
+    type: "master_group", // Set type
+    amount: master_group, // Set amount
+  });
+
   await masterGroupPayment.save();
 
   res.status(200).json({
-    message: "Master Single payment added successfully",
+    message: "Master Group payment added successfully",
     masterGroupPayment,
     status: true,
   });
 });
 const updateMasterSinglePayment = asyncHandler(async (req, res, next) => {
   let { master_single, id } = req.body;
-  console.log(req.body);
+
   // Convert string values to numbers if they exist
   master_single = master_single ? parseFloat(master_single) : undefined;
 
@@ -2100,22 +2097,23 @@ const updateMasterSinglePayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Please enter a valid master_single payment amount.", 400));
   }
 
-  const masterSinglePayment = await TeacherPayment.findById(id);
+  const masterSinglePayment = await TeacherPayment.findOneAndUpdate(
+    { _id: id, type: "master_single" }, // Find document with specific type
+    { amount: master_single }, // Update amount field
+    { new: true, runValidators: true } // Return the updated document and run validators
+  );
 
   if (!masterSinglePayment) {
     return next(new ErrorHandler("Master payment not found.", 404));
   }
 
-  masterSinglePayment.master_single = master_single;
-
-  await masterSinglePayment.save();
-
   res.status(200).json({
-    message: "Master payment updated successfully",
+    message: "Master Single payment updated successfully",
     masterSinglePayment,
     status: true,
   });
 });
+
 const updateMasterGroupPayment = asyncHandler(async (req, res, next) => {
   let { master_group, id } = req.body;
   console.log(req.body);
@@ -2145,6 +2143,7 @@ const updateMasterGroupPayment = asyncHandler(async (req, res, next) => {
 
 const addAdvanceSinglePayment = asyncHandler(async (req, res, next) => {
   let { advance_single } = req.body;
+
   // Convert string values to numbers if they exist
   advance_single = advance_single ? parseFloat(advance_single) : undefined;
 
@@ -2152,17 +2151,22 @@ const addAdvanceSinglePayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
   }
 
-  const advanceSinglePayment = new TeacherPayment({ advance_single });
+  const advanceSinglePayment = new TeacherPayment({
+    type: "advance_single", // Set type
+    amount: advance_single, // Set amount
+  });
+
   await advanceSinglePayment.save();
 
   res.status(200).json({
-    message: "Advance payment added successfully",
+    message: "Advance Single payment added successfully",
     advanceSinglePayment,
     status: true,
   });
 });
 const addAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
   let { advance_group } = req.body;
+
   // Convert string values to numbers if they exist
   advance_group = advance_group ? parseFloat(advance_group) : undefined;
 
@@ -2170,11 +2174,15 @@ const addAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Please enter a valid advance payment amount.", 400));
   }
 
-  const advanceGroupPayment = new TeacherPayment({ advance_group });
+  const advanceGroupPayment = new TeacherPayment({
+    type: "advance_group", // Set type
+    amount: advance_group, // Set amount
+  });
+
   await advanceGroupPayment.save();
 
   res.status(200).json({
-    message: "Advance payment added successfully",
+    message: "Advance Group payment added successfully",
     advanceGroupPayment,
     status: true,
   });
@@ -2235,66 +2243,39 @@ const updateAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
 });
 
 const getMasterAndAdvancePayments = asyncHandler(async (req, res) => {
-  const payments = await TeacherPayment.find({});
+  try {
+    const payments = await TeacherPayment.find({});
+    console.log("Raw payments:", payments);
 
-  // Transform payments into the desired format
-  const formattedPayments = [];
-
-  payments.forEach((payment) => {
-    // Add advance payment if exists
-    if (payment.advance_single) {
-      formattedPayments.push({
+    // Transform payments into the desired format
+    const formattedPayments = payments.map((payment) => {
+      // Return the payment in the desired format based on the `type` field
+      return {
         _id: payment._id,
-        Payment: payment.advance_single,
-        Type: "advance_single",
+        Payment: payment.amount,
+        Type: payment.type,
         createdAt: payment.createdAt,
         updatedAt: payment.updatedAt,
-      });
-    }
+      };
+    });
 
-    if (payment.advance_group) {
-      formattedPayments.push({
-        _id: payment._id,
-        Payment: payment.advance_group,
-        Type: "advance_group",
-        createdAt: payment.createdAt,
-        updatedAt: payment.updatedAt,
-      });
-    }
+    console.log("Formatted payments:", formattedPayments);
 
-    // Add master payment if exists
-    if (payment.master_single) {
-      formattedPayments.push({
-        _id: payment._id,
-        Payment: payment.master_single,
-        Type: "master_single",
-        createdAt: payment.createdAt,
-        updatedAt: payment.updatedAt,
-      });
-    }
-    if (payment.master_group) {
-      formattedPayments.push({
-        _id: payment._id,
-        Payment: payment.master_group,
-        Type: "master_group",
-        createdAt: payment.createdAt,
-        updatedAt: payment.updatedAt,
-      });
-    }
-  });
-  console.log(formattedPayments);
-
-  res.status(200).json({
-    message: "Payments retrieved successfully",
-    payments: formattedPayments,
-  });
+    res.status(200).json({
+      message: "Payments retrieved successfully",
+      payments: formattedPayments,
+    });
+  } catch (error) {
+    console.error("Error retrieving payments:", error);
+    return next(new ErrorHandler("Unable to retrieve payments.", 500));
+  }
 });
 
 const updateUserPayment = async (req, res, next) => {
-  const { userId, payment_id } = req.body;
+  const { userId, groupPaymentId, singlePaymentId } = req.body;
 
-  if (!userId || !payment_id) {
-    return next(new ErrorHandler("Please Provide userId and payment_id.", 400));
+  if (!userId || !groupPaymentId || !singlePaymentId) {
+    return next(new ErrorHandler("Please provide userId, groupPaymentId, and singlePaymentId.", 400));
   }
 
   const user = await User.findById(userId);
@@ -2303,14 +2284,14 @@ const updateUserPayment = async (req, res, next) => {
     return next(new ErrorHandler("User not found.", 404));
   }
 
-  // Assuming user has only one payment object to be updated
-  user.payment_id = payment_id;
-
+  // Update user's payment IDs
+  user.groupPaymentId = groupPaymentId;
+  user.singlePaymentId = singlePaymentId;
   user.updatedAt = Date.now();
 
   const updatedUser = await user.save();
   if (updatedUser) {
-    // Check if teacher has a firebase_token
+    // Check if user has a firebase_token
     if (updatedUser.firebase_token) {
       const registrationToken = updatedUser.firebase_token;
       const title = `${updatedUser.full_name} Payment Updated`;
@@ -2330,7 +2311,8 @@ const updateUserPayment = async (req, res, next) => {
 
   res.status(200).json({
     _id: user._id,
-    payment_id: user.payment_id,
+    groupPaymentId: user.groupPaymentId,
+    singlePaymentId: user.singlePaymentId,
     updatedAt: user.updatedAt,
   });
 };
@@ -2354,6 +2336,8 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
       type: type,
       deleted_at: null,
     });
+
+    console.log(courses);
 
     if (!courses || courses.length === 0) {
       return res.status(200).json({

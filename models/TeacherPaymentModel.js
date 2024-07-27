@@ -2,22 +2,17 @@ const mongoose = require("mongoose");
 
 const teacherPaymentSchema = new mongoose.Schema(
   {
-    master_single: {
-      type: Number,
+    type: {
+      type: String,
+      enum: ["master_single", "master_group", "advance_single", "advance_group"],
+      required: true,
     },
-    master_group: {
+    amount: {
       type: Number,
-    },
-    advance_single: {
-      type: Number,
-    },
-    advance_group: {
-      type: Number,
+      required: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const TeacherPayment = mongoose.model("TeacherPayment", teacherPaymentSchema);

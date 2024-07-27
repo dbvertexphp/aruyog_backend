@@ -97,6 +97,12 @@ const courseSchema = new Schema(
     ],
 
     teacher_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    payment_id: { type: Schema.Types.ObjectId, ref: "TeacherPayment" },
+    amount: { type: Number },
+    payment_type: {
+      // New field for payment type
+      type: String,
+    },
   },
   { timestamps: true }
 );

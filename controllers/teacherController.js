@@ -196,13 +196,27 @@ const getTeacherProfileDataByTeacherId = asyncHandler(async (req, res) => {
     }
 
     let paymentDetails = {};
-    if (user.payment_id) {
-      // Fetch payment details from TeacherPayment model
-      const payment = await TeacherPayment.findById(user.payment_id);
-      if (payment) {
-        paymentDetails = {
-          type: payment.advance ? "advance" : "master", // Determine type based on available fields
-          amount: payment.advance || payment.master,
+
+    // Fetch payment details from TeacherPayment model for groupPaymentId
+    if (user.groupPaymentId) {
+      const groupPayment = await TeacherPayment.findById(user.groupPaymentId);
+      if (groupPayment) {
+        paymentDetails.groupPayment = {
+          type: groupPayment.advance_group ? "advance_group" : "master_group",
+          amount: groupPayment.advance_group || groupPayment.master_group,
+          payment_Id: groupPayment._id || groupPayment._id,
+        };
+      }
+    }
+
+    // Fetch payment details from TeacherPayment model for singlePaymentId
+    if (user.singlePaymentId) {
+      const singlePayment = await TeacherPayment.findById(user.singlePaymentId);
+      if (singlePayment) {
+        paymentDetails.singlePayment = {
+          type: singlePayment.advance_single ? "advance_single" : "master_single",
+          amount: singlePayment.advance_single || singlePayment.master_single,
+          payment_Id: singlePayment._id || singlePayment._id,
         };
       }
     }
@@ -242,7 +256,7 @@ function deleteFile(filePath) {
   });
 }
 
-const addCourse = asyncHandler(async (req, res) => {
+const addCourse = asyncHandler(async (req, res, next) => {
   req.uploadPath = "uploads/course";
   upload.single("course_image")(req, res, async (err) => {
     if (err) {
@@ -304,6 +318,26 @@ const addCourse = asyncHandler(async (req, res) => {
         return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
       }
 
+      // Fetch payment details based on course type
+      const user = await User.findById(teacher_id);
+      if (!user) {
+        return res.status(404).json({ error: "Teacher not found." });
+      }
+
+      let paymentId;
+      if (type === "group_course") {
+        paymentId = user.groupPaymentId;
+      } else if (type === "single_course") {
+        paymentId = user.singlePaymentId;
+      }
+
+      const paymentDetails = await TeacherPayment.findById(paymentId);
+      if (!paymentDetails) {
+        return res.status(404).json({ error: "Payment details not found." });
+      }
+
+      console.log(paymentDetails);
+
       // Calculate end date excluding weekends
       const endDate = calculateEndDate(startDate, 21); // Excluding weekends
       const formattedStartDate = formatDate(startDate);
@@ -311,8 +345,23 @@ const addCourse = asyncHandler(async (req, res) => {
 
       // Get the profile picture path if uploaded
       const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+      // Check if teacher has a firebase_token
+      if (user.firebase_token) {
+        const registrationToken = user.firebase_token;
+        const title = `Course Add Successfuly`;
+        const body = `Based on your profile information, the course will be reviewed by our admin team. Once approved, your course will be active and available for students.`;
 
-      // Create new course with parsed dates
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+        await addNotification(null, user._id, body, title, null);
+      }
+
+      // Create new course with parsed dates and payment details
       const newCourse = new Course({
         title,
         course_image,
@@ -324,6 +373,9 @@ const addCourse = asyncHandler(async (req, res) => {
         startDate: formattedStartDate,
         endDate: formattedEndDate,
         teacher_id,
+        payment_id: paymentDetails._id,
+        amount: paymentDetails.amount,
+        payment_type: paymentDetails.type,
       });
 
       const savedCourse = await newCourse.save();
@@ -340,6 +392,9 @@ const addCourse = asyncHandler(async (req, res) => {
         startDate: savedCourse.startDate,
         endDate: savedCourse.endDate,
         teacher_id: savedCourse.teacher_id,
+        payment_id: savedCourse.payment_id,
+        amount: savedCourse.amount,
+        payment_type: savedCourse.payment_type,
         status: true,
       });
     } catch (error) {

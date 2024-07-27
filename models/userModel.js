@@ -39,7 +39,8 @@ const userSchema = mongoose.Schema({
   about_me: { type: String },
   averageRating: { type: Number, default: 0 },
   ratingCount: { type: Number, default: 0 },
-  payment_id: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "TeacherPayment" },
+  groupPaymentId: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "TeacherPayment" },
+  singlePaymentId: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "TeacherPayment" },
   firebase_token: { type: String, default: null },
   missingDays: { type: Number, default: 21, required: true },
   datetime: {

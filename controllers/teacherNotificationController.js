@@ -214,7 +214,7 @@ const getMissingAttendanceDays = asyncHandler(async (req, res) => {
 
   try {
     // Find the course by course_id and teacher_id
-    const course = await Course.findOne({ _id: course_id, teacher_id: teacher_id });
+    const course = await Course.findById({ _id: course_id, teacher_id: teacher_id });
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
