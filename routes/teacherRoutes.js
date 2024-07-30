@@ -12,7 +12,7 @@ teacherRoutes.put("/addCourse", protect, Authorization(["teacher"]), addCourse);
 
 teacherRoutes.route("/getTodayCourse").get(protect, Authorization(["teacher"]), getTodayCourse);
 teacherRoutes.route("/getMyClasses").get(protect, Authorization(["teacher"]), getMyClasses);
-teacherRoutes.route("/getTeacherProfileDataByTeacherId").post(protect, getTeacherProfileDataByTeacherId);
+teacherRoutes.route("/getTeacherProfileDataByTeacherId/:teacher_id").get(protect, Authorization(["admin"]), getTeacherProfileDataByTeacherId);
 
 teacherRoutes.route("/updateCourseDates").post(protect, Authorization(["admin"]), updateCourseDates);
 teacherRoutes.route("/courseActiveStatus").post(protect, Authorization(["admin"]), CourseActiveStatus);

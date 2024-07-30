@@ -186,8 +186,8 @@ const getTeacherProfileData = asyncHandler(async (req, res) => {
 });
 
 const getTeacherProfileDataByTeacherId = asyncHandler(async (req, res) => {
-  const { teacher_id } = req.body; // Assuming you have user authentication middleware
-
+  const { teacher_id } = req.params; // Assuming you have user authentication middleware
+  console.log(req.params);
   try {
     // Find the user by ID
     const user = await User.findById({ _id: teacher_id, deleted_at: null });
