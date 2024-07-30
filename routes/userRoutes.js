@@ -62,6 +62,8 @@ const {
   getAllTeachersInAdmin,
   updateCourseWithDemoId,
   askForDemo,
+  getSinglePayments,
+  getGroupPayments,
 } = require("../controllers/userControllers.js");
 const { CreateCalendar, GetSpecialEntries, FindPriceByDateTime, GetNormalEntries } = require("../controllers/calendarControllers.js");
 const { createHire, getHireListByUserId, updateHireStatus, getAllHireList, getHireByMe, HirePaymentUpdateStatus } = require("../controllers/hireControllers.js");
@@ -121,6 +123,8 @@ userRoutes.route("/addAdvanceGroupPayment").post(protect, Authorization(["admin"
 userRoutes.route("/updateAdvanceSinglePayment").post(protect, Authorization(["admin"]), updateAdvanceSinglePayment);
 userRoutes.route("/updateAdvanceGroupPayment").post(protect, Authorization(["admin"]), updateAdvanceGroupPayment);
 userRoutes.route("/getMasterAndAdvancePayments").get(protect, Authorization(["admin"]), getMasterAndAdvancePayments);
+userRoutes.route("/getSinglePayments").get(protect, Authorization(["admin"]), getSinglePayments);
+userRoutes.route("/getGroupPayments").get(protect, Authorization(["admin"]), getGroupPayments);
 userRoutes.route("/updateUserPayment").put(protect, Authorization(["admin"]), updateUserPayment);
 userRoutes.route("/getAllCourse").get(protect, Authorization(["admin"]), getAllCourse);
 userRoutes.route("/getAllDashboardCount").get(protect, Authorization(["admin"]), getAllDashboardCount);

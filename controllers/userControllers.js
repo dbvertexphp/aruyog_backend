@@ -2271,6 +2271,55 @@ const getMasterAndAdvancePayments = asyncHandler(async (req, res) => {
   }
 });
 
+const getSinglePayments = asyncHandler(async (req, res) => {
+  try {
+    const singlePayments = await TeacherPayment.find({
+      type: { $in: ["master_single", "advance_single"] },
+    });
+
+    const formattedPayments = singlePayments.map((payment) => ({
+      _id: payment._id,
+      Payment: payment.amount,
+      Type: payment.type,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+    }));
+
+    res.status(200).json({
+      message: "Single payments retrieved successfully",
+      payments: formattedPayments,
+    });
+  } catch (error) {
+    console.error("Error retrieving single payments:", error);
+    return next(new ErrorHandler("Unable to retrieve single payments.", 500));
+  }
+});
+
+const getGroupPayments = asyncHandler(async (req, res) => {
+  try {
+    const groupPayments = await TeacherPayment.find({
+      type: { $in: ["master_group", "advance_group"] },
+    });
+
+    const formattedPayments = groupPayments.map((payment) => ({
+      _id: payment._id,
+      Payment: payment.amount,
+      Type: payment.type,
+      createdAt: payment.createdAt,
+      updatedAt: payment.updatedAt,
+    }));
+
+    res.status(200).json({
+      message: "Group payments retrieved successfully",
+      payments: formattedPayments,
+    });
+  } catch (error) {
+    console.error("Error retrieving group payments:", error);
+    return next(new ErrorHandler("Unable to retrieve group payments.", 500));
+  }
+});
+
+
 const updateUserPayment = async (req, res, next) => {
   const { userId, groupPaymentId, singlePaymentId } = req.body;
 
@@ -3109,4 +3158,6 @@ module.exports = {
   updateCourseWithDemoId,
   askForDemo,
   getAllTeachersByAdmin,
+  getSinglePayments,
+  getGroupPayments,
 };

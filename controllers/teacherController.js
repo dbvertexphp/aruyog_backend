@@ -333,7 +333,7 @@ const addCourse = asyncHandler(async (req, res, next) => {
 
       const paymentDetails = await TeacherPayment.findById(paymentId);
       if (!paymentDetails) {
-        return res.status(404).json({ error: "Payment details not found." });
+        return res.status(404).json({ error: "You are only allowed to create course when admin approve your account and update your payment." });
       }
 
       console.log(paymentDetails);
@@ -348,7 +348,7 @@ const addCourse = asyncHandler(async (req, res, next) => {
       // Check if teacher has a firebase_token
       if (user.firebase_token) {
         const registrationToken = user.firebase_token;
-        const title = `Course Add Successfuly`;
+        const title = `Course Added Successfuly`;
         const body = `Based on your profile information, the course will be reviewed by our admin team. Once approved, your course will be active and available for students.`;
 
         // Send notification

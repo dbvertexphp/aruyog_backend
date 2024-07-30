@@ -7,6 +7,7 @@ const { sendFCMNotification } = require("./notificationControllers");
 
 const addTeacherPaymentStatus = asyncHandler(async (req, res) => {
   const { teacher_id, amount, payment_datetime, remark } = req.body;
+  console.log(req.body);
 
   // Validate input data
   if (!teacher_id || !amount || !payment_datetime) {
@@ -206,67 +207,90 @@ const getTeacherPaymentStatusById = asyncHandler(async (req, res) => {
   }
 });
 
-// const getTeacherPaymentStatuses = asyncHandler(async (req, res) => {
-//   const { page = 1, limit = 10, search } = req.query; // Default values: page 1, limit 10
-//   console.log(search);
+// const calculatePayment = asyncHandler(async (req, res) => {
 //   try {
-//     let query = {};
-
-//     // If search parameter is provided, filter by teacher's full_name
-//     if (search) {
-//       query = {
-//         // Assuming `teacher_id` is an ObjectId reference to another collection where `full_name` is stored
-//         teacher_id: { $in: await User.find({ full_name: { $regex: new RegExp(search, "i") } }).select("_id") },
-//       };
+//     const teacherId = req.headers.userID; // Ensure correct case for headers field (all lowercase).
+//     if (!teacherId) {
+//       return res.status(400).json({ error: "UserID header is required" });
 //     }
 
-//     const paymentStatusesQuery = TeacherPaymentStatus.find(query)
-//       .populate({
-//         path: "teacher_id",
-//         select: "full_name",
-//       })
-//       .sort({ created_at: -1 }) // Sort by descending order of creation date
-//       .skip((page - 1) * limit)
-//       .limit(parseInt(limit));
+//     const currentDate = new Date();
+//     const currentMonthStart = startOfMonth(currentDate);
+//     const currentMonthEnd = endOfMonth(currentDate);
 
-//     const paymentStatuses = await paymentStatusesQuery.exec();
-//     const totalCount = await TeacherPaymentStatus.countDocuments(query);
+//     // Fetch latest payment status for the teacher
+//     const latestPaymentStatus = await TeacherPaymentStatus.findOne({ teacher_id: teacherId }).sort({ createdAt: -1 });
 
-//     // Calculate totalAmount for each teacher
-//     const teacherIds = paymentStatuses.map((status) => status.teacher_id._id);
-//     const transactions = await Transaction.aggregate([
-//       { $match: { teacher_id: { $in: teacherIds } } },
-//       {
-//         $group: {
-//           _id: "$teacher_id",
-//           totalAmount: { $sum: "$amount" },
-//         },
-//       },
-//     ]);
+//     if (!latestPaymentStatus) {
+//       return res.status(404).json({ error: "No payment status found for the teacher" });
+//     }
 
-//     // Map totalAmount to paymentStatuses
-//     const paymentStatusesWithTotalAmount = paymentStatuses.map((status) => {
-//       const transaction = transactions.find((t) => t._id.toString() === status.teacher_id._id.toString());
+//     const teacherInfo = await User.findById(teacherId);
+//     const fullName = teacherInfo ? teacherInfo.full_name : "Unknown";
+//     const profile_pic = teacherInfo ? teacherInfo.profile_pic : "Unknown";
+//     const remainingAmount = latestPaymentStatus.remaining_amount;
+//     const totalAmount = latestPaymentStatus.total_amount; // Directly fetch total_amount from latest payment status
+
+//     // Calculate current month total
+//     const payments = await TeacherPaymentStatus.find({ teacher_id: teacherId });
+//     const totalPaidAmount = payments.reduce((sum, status) => sum + status.amount, 0);
+
+//     const currentMonthPayments = payments.filter((payment) => isWithinInterval(parse(payment.payment_datetime, "dd/MM/yyyy", new Date()), { start: currentMonthStart, end: currentMonthEnd }));
+//     const currentMonthTotal = currentMonthPayments.reduce((total, payment) => total + payment.amount, 0);
+
+//     // Calculate previous months totals
+//     const previousMonthTotals = [];
+//     const distinctMonths = new Set();
+
+//     // Collect all distinct months from payments
+//     payments.forEach((payment) => {
+//       const paymentDate = parse(payment.payment_datetime, "dd/MM/yyyy", new Date());
+//       const monthKey = format(paymentDate, "MMMM yyyy");
+//       distinctMonths.add(monthKey);
+//     });
+
+//     // Iterate through each distinct month and calculate totals
+//     distinctMonths.forEach((monthKey) => {
+//       const monthDate = parse(`01 ${monthKey}`, "dd MMMM yyyy", new Date());
+//       const monthStart = startOfMonth(monthDate);
+//       const monthEnd = endOfMonth(monthDate);
+
+//       const monthPayments = payments.filter((payment) => isWithinInterval(parse(payment.payment_datetime, "dd/MM/yyyy", new Date()), { start: monthStart, end: monthEnd }));
+//       const monthTotal = monthPayments.reduce((total, payment) => total + payment.amount, 0);
+
+//       previousMonthTotals.push({ month: monthKey, totalAmount: monthTotal });
+//     });
+
+//     // Get student payment details
+//     const transactions = await Transaction.find({ teacher_id: teacherId });
+
+//     const studentIds = transactions.map((txn) => txn.user_id);
+//     const students = await User.find({ _id: { $in: studentIds } }, "profile_pic full_name");
+
+//     const studentPayments = transactions.map((txn) => {
+//       const student = students.find((stu) => stu._id.equals(txn.user_id));
+
 //       return {
-//         ...status._doc,
-//         totalAmount: transaction ? transaction.totalAmount : 0,
+//         student_id: txn.user_id,
+//         profile_pic: student ? student.profile_pic : "Unknown",
+//         full_name: student ? student.full_name : "Unknown",
+//         transaction_datetime: txn.datetime,
+//         amount: txn.amount,
 //       };
 //     });
 
-//     // Save totalAmount in TeacherPaymentStatus collection (if needed)
-//     for (const status of paymentStatusesWithTotalAmount) {
-//       await TeacherPaymentStatus.updateOne({ _id: status._id }, { totalAmount: status.totalAmount });
-//     }
-
-//     res.status(200).json({
-//       totalCount,
-//       totalPages: Math.ceil(totalCount / limit),
-//       currentPage: parseInt(page),
-//       paymentStatuses: paymentStatusesWithTotalAmount,
+//     res.json({
+//       totalAmount,
+//       remainingAmount,
+//       totalPaidAmount,
+//       currentMonthTotals: [{ month: format(currentMonthStart, "MMMM yyyy"), totalAmount: currentMonthTotal }],
+//       previousMonthTotals,
+//       fullName,
+//       profile_pic,
+//       studentPayments,
 //     });
 //   } catch (error) {
-//     console.error("Error fetching payment statuses:", error.message);
-//     res.status(500).json({ error: "Internal Server Error" });
+//     res.status(500).json({ error: error.message });
 //   }
 // });
 
@@ -277,6 +301,10 @@ const calculatePayment = asyncHandler(async (req, res) => {
       return res.status(400).json({ error: "UserID header is required" });
     }
 
+    const teacherInfo = await User.findById(teacherId);
+    const fullName = teacherInfo ? teacherInfo.full_name : "Unknown";
+    const profile_pic = teacherInfo ? teacherInfo.profile_pic : "Unknown";
+
     const currentDate = new Date();
     const currentMonthStart = startOfMonth(currentDate);
     const currentMonthEnd = endOfMonth(currentDate);
@@ -284,15 +312,10 @@ const calculatePayment = asyncHandler(async (req, res) => {
     // Fetch latest payment status for the teacher
     const latestPaymentStatus = await TeacherPaymentStatus.findOne({ teacher_id: teacherId }).sort({ createdAt: -1 });
 
-    if (!latestPaymentStatus) {
-      return res.status(404).json({ error: "No payment status found for the teacher" });
-    }
-
-    const teacherInfo = await User.findById(teacherId);
-    const fullName = teacherInfo ? teacherInfo.full_name : "Unknown";
-    const profile_pic = teacherInfo ? teacherInfo.profile_pic : "Unknown";
-    const remainingAmount = latestPaymentStatus.remaining_amount;
-    const totalAmount = latestPaymentStatus.total_amount; // Directly fetch total_amount from latest payment status
+    let remainingAmount = latestPaymentStatus ? latestPaymentStatus.remaining_amount : 0;
+    let totalAmount = latestPaymentStatus ? latestPaymentStatus.total_amount : 0;
+    let dummyTotalAmount = 0;
+    let dummyRemainingAmount = 0;
 
     // Calculate current month total
     const payments = await TeacherPaymentStatus.find({ teacher_id: teacherId });
@@ -332,6 +355,9 @@ const calculatePayment = asyncHandler(async (req, res) => {
 
     const studentPayments = transactions.map((txn) => {
       const student = students.find((stu) => stu._id.equals(txn.user_id));
+      // Update totalAmount and remainingAmount if they are 0
+      dummyTotalAmount = dummyTotalAmount + txn.amount;
+      dummyRemainingAmount = dummyRemainingAmount + txn.amount;
 
       return {
         student_id: txn.user_id,
@@ -342,12 +368,17 @@ const calculatePayment = asyncHandler(async (req, res) => {
       };
     });
 
+    if (totalAmount == 0 || remainingAmount == 0) {
+      totalAmount = dummyTotalAmount;
+      remainingAmount = dummyRemainingAmount;
+    }
+
     res.json({
       totalAmount,
       remainingAmount,
-      totalPaidAmount,
-      currentMonthTotals: [{ month: format(currentMonthStart, "MMMM yyyy"), totalAmount: currentMonthTotal }],
-      previousMonthTotals,
+      totalPaidAmount: totalPaidAmount || 0,
+      currentMonthTotals: currentMonthTotal ? [{ month: format(currentMonthStart, "MMMM yyyy"), totalAmount: currentMonthTotal }] : [],
+      previousMonthTotals: previousMonthTotals.length > 0 ? previousMonthTotals : [],
       fullName,
       profile_pic,
       studentPayments,
