@@ -6,5 +6,13 @@
       "package_name": "com.dbvertex.aruyog",
       "sha256_cert_fingerprints": ["65:3B:0C:2B:2A:F3:24:2E:47:33:34:75:C0:A3:05:89:D6:A8:02:E8:D4:A0:42:11:E7:A5:32:07:FE:CF:D5:0B"]
     }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.dbvertex.aruyog",
+      "sha256_cert_fingerprints": ["4D:88:F5:C8:9A:B6:0F:63:6C:75:CD:EC:EB:EE:C5:09:8D:6C:F8:49:DF:02:C8:94:A3:18:38:7C:4F:FC:24:CB"]
+    }
   }
 ]
