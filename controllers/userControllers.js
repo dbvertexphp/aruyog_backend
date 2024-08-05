@@ -2321,50 +2321,84 @@ const getGroupPayments = asyncHandler(async (req, res) => {
 
 
 const updateUserPayment = async (req, res, next) => {
-  const { userId, groupPaymentId, singlePaymentId } = req.body;
+      const { userId, type } = req.body;
 
-  if (!userId || !groupPaymentId || !singlePaymentId) {
-    return next(new ErrorHandler("Please provide userId, groupPaymentId, and singlePaymentId.", 400));
-  }
-
-  const user = await User.findById(userId);
-
-  if (!user) {
-    return next(new ErrorHandler("User not found.", 404));
-  }
-
-  // Update user's payment IDs
-  user.groupPaymentId = groupPaymentId;
-  user.singlePaymentId = singlePaymentId;
-  user.updatedAt = Date.now();
-
-  const updatedUser = await user.save();
-  if (updatedUser) {
-    // Check if user has a firebase_token
-    if (updatedUser.firebase_token) {
-      const registrationToken = updatedUser.firebase_token;
-      const title = `${updatedUser.full_name} Payment Updated`;
-      const body = `${updatedUser.full_name} Payment Updated`;
-
-      // Send notification
-      const notificationResult = await sendFCMNotification(registrationToken, title, body);
-
-      if (notificationResult.success) {
-        console.log("Notification sent successfully:", notificationResult.response);
-      } else {
-        console.error("Failed to send notification:", notificationResult.error);
+      if (!userId || !type) {
+        return next(new ErrorHandler("Please provide userId and type.", 400));
       }
-      await addNotification(null, userId, "Payment Updated", null, null);
-    }
-  }
 
-  res.status(200).json({
-    _id: user._id,
-    groupPaymentId: user.groupPaymentId,
-    singlePaymentId: user.singlePaymentId,
-    updatedAt: user.updatedAt,
-  });
+      try {
+        // Define the payment types
+        const paymentTypes = {
+          master: ['master_single', 'master_group'],
+          advance: ['advance_single', 'advance_group'],
+        };
+
+        // Validate type
+        if (!Object.keys(paymentTypes).includes(type)) {
+          return next(new ErrorHandler("Invalid type. Must be 'master' or 'advance'.", 400));
+        }
+
+        // Fetch payment IDs based on type
+        const paymentIds = await TeacherPayment.find({ type: { $in: paymentTypes[type] } }).exec();
+
+        // Create a mapping of payment types to their IDs
+        const paymentIdMap = paymentIds.reduce((acc, payment) => {
+          acc[payment.type] = payment._id;
+          return acc;
+        }, {});
+
+        // Ensure all required payment types are available
+        if (paymentTypes[type].some(pt => !paymentIdMap[pt])) {
+          return next(new ErrorHandler("Some payment types are missing from the database.", 500));
+        }
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+          return next(new ErrorHandler("User not found.", 404));
+        }
+
+        // Update user's payment IDs based on the type
+        user.groupPaymentId = paymentIdMap[paymentTypes[type][1]]; // Group payment ID
+        user.singlePaymentId = paymentIdMap[paymentTypes[type][0]]; // Single payment ID
+
+        user.updatedAt = Date.now();
+
+        const updatedUser = await user.save();
+
+        if (updatedUser) {
+          // Check if user has a firebase_token
+          if (updatedUser.firebase_token) {
+            const registrationToken = updatedUser.firebase_token;
+            const title = `${updatedUser.full_name} Payment Updated`;
+            const body = `${updatedUser.full_name} Payment Updated`;
+
+            // Send notification
+            const notificationResult = await sendFCMNotification(registrationToken, title, body);
+
+            if (notificationResult.success) {
+              console.log("Notification sent successfully:", notificationResult.response);
+            } else {
+              console.error("Failed to send notification:", notificationResult.error);
+            }
+            await addNotification(null, userId, "Payment Updated", null, null);
+          }
+        }
+
+        res.status(200).json({
+          _id: user._id,
+          groupPaymentId: user.groupPaymentId,
+          singlePaymentId: user.singlePaymentId,
+          updatedAt: user.updatedAt,
+        });
+
+      } catch (error) {
+        console.error("Error updating user payment:", error);
+        return next(new ErrorHandler("Unable to update user payment.", 500));
+      }
 };
+
 
 const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
   const { teacher_id, type } = req.body;
@@ -3095,6 +3129,8 @@ const askForDemo = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+
 
 module.exports = {
   getUsers,

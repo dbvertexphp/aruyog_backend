@@ -829,4 +829,82 @@ const autoDeactivateCourses = async () => {
   }
 };
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses };
+const teacherUnavailabilityDate = async (req,res) =>{
+      try {
+            const userId = req.headers.userID;
+            const { teacherUnavailabilityDates } = req.body;
+
+            if (!userId) {
+              return res.status(400).json({ message: 'UserID is required in headers.' });
+            }
+
+            if (!Array.isArray(teacherUnavailabilityDates)) {
+              return res.status(400).json({ message: 'teacherUnavailabilityDates should be an array.' });
+            }
+
+            // Find the user and update the teacherUnavailabilityDates field
+            const updatedUser = await User.findByIdAndUpdate(
+              userId,
+              { teacherUnavailabilityDates },
+              { new: true, runValidators: true } // Return the updated user and validate the data
+            );
+
+            if (!updatedUser) {
+              return res.status(404).json({ message: 'User not found.' });
+            }
+
+            res.status(200).json({
+              message: 'Unavailability dates updated successfully.',
+              user: updatedUser
+            });
+
+          } catch (error) {
+            console.error('Error updating unavailability dates:', error);
+            res.status(500).json({ message: 'Server error.' });
+          }
+}
+
+const updateTeacherDocument = async (req, res) => {
+      const userID = req.headers.userID;
+      req.uploadPath = "uploads/teacherDocument";
+
+      upload.single("teacherDocument")(req, res, async (err) => {
+        if (err) {
+          return res.status(400).json({ message: 'File upload error', error: err });
+        }
+
+        const { verifyStatus } = req.body;
+
+        if (!userID) {
+          return res.status(400).json({ message: 'User ID is required' });
+        }
+
+        try {
+          const teacherDocument = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+          const updatedUser = await User.findByIdAndUpdate(
+            userID,
+            {
+              $set: {
+                verifyStatus,
+                teacherDocument
+              }
+            },
+            { new: true, runValidators: true } // Return the updated document and run validators
+          );
+
+          if (!updatedUser) {
+            return res.status(404).json({ message: 'User not found' });
+          }
+
+          res.status(200).json({ message: 'User updated successfully', data: updatedUser });
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: 'Internal server error', error });
+        }
+      });
+};
+
+
+
+
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument };
