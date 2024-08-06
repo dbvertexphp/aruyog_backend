@@ -1,7 +1,7 @@
 const express = require("express");
 const protect = require("../middleware/authMiddleware.js");
 const Authorization = require("../middleware/Authorization.middleware.js");
-const { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses,teacherUnavailabilityDate, updateTeacherDocument } = require("../controllers/teacherController.js");
+const { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses,teacherUnavailabilityDate, updateTeacherDocument,getteacherUnavailabilityDateById } = require("../controllers/teacherController.js");
 
 const teacherRoutes = express.Router();
 
@@ -15,6 +15,7 @@ teacherRoutes.route("/getMyClasses").get(protect, Authorization(["teacher"]), ge
 teacherRoutes.route("/getTeacherProfileDataByTeacherId/:teacher_id").get(protect, Authorization(["admin"]), getTeacherProfileDataByTeacherId);
 teacherRoutes.route("/teacherUnavailabilityDate").post(protect, Authorization(["teacher"]), teacherUnavailabilityDate);
 teacherRoutes.route("/updateTeacherDocument").post(protect, Authorization(["teacher"]), updateTeacherDocument);
+teacherRoutes.route("/getteacherUnavailabilityDateById").post(protect, Authorization(["teacher"]), getteacherUnavailabilityDateById);
 
 
 teacherRoutes.route("/updateCourseDates").post(protect, Authorization(["admin"]), updateCourseDates);

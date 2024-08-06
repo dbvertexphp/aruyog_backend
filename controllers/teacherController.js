@@ -863,6 +863,26 @@ const teacherUnavailabilityDate = async (req,res) =>{
             res.status(500).json({ message: 'Server error.' });
           }
 }
+const getteacherUnavailabilityDateById = asyncHandler(async (req, res) => {
+      const {userId} = req.body; // Assuming you have user authentication middleware
+
+      try {
+        // Find the user by ID
+        const user = await User.findById({ _id: userId });
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        // Return the user's profile information
+        return res.status(200).json({
+          teacherUnavailabilityDates: user.teacherUnavailabilityDates,
+          verifyStatus: user.verifyStatus,
+        });
+      } catch (error) {
+        console.error("Error fetching user details:", error.message);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+});
 
 const updateTeacherDocument = async (req, res) => {
       const userID = req.headers.userID;
@@ -907,4 +927,4 @@ const updateTeacherDocument = async (req, res) => {
 
 
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById };
