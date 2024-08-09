@@ -210,19 +210,7 @@ const getTeacherProfileDataByTeacherId = asyncHandler(async (req, res) => {
 
     // Return the user's profile information
     return res.status(200).json({
-      _id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      full_name: user.full_name,
-      mobile: user.mobile,
-      email: user.email,
-      experience: user.experience,
-      education: user.education,
-      languages: user.languages,
-      expertise: user.expertise,
-      about_me: user.about_me,
-      background_image: user.background_image,
-      profile_pic: user.profile_pic,
+      user: user,
       status: true,
       payment: paymentDetails,
     });
