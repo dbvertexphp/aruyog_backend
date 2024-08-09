@@ -163,19 +163,7 @@ const getTeacherProfileData = asyncHandler(async (req, res) => {
 
     // Return the user's profile information
     return res.status(200).json({
-      _id: user._id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      full_name: user.full_name,
-      mobile: user.mobile,
-      email: user.email,
-      experience: user.experience,
-      education: user.education,
-      languages: user.languages,
-      expertise: user.expertise,
-      about_me: user.about_me,
-      background_image: user.background_image,
-      profile_pic: user.profile_pic,
+      user: user,
       status: true,
       payment: paymentDetails,
     });
@@ -256,152 +244,276 @@ function deleteFile(filePath) {
   });
 }
 
+// const addCourse = asyncHandler(async (req, res, next) => {
+//   req.uploadPath = "uploads/course";
+//   upload.single("course_image")(req, res, async (err) => {
+//     if (err) {
+//       return next(new ErrorHandler(err.message, 400));
+//     }
+//     const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
+//     const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
+
+//     try {
+//       // Validate required fields
+//       if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime || !startDate) {
+//         return res.status(400).json({
+//           error: "All fields (title, category_id, sub_category_id, type, startTime, endTime, startDate) are required.",
+//         });
+//       }
+
+//       // Validate and parse startDate
+//       const parsedStartDate = new Date(startDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
+//       if (isNaN(parsedStartDate.getTime())) {
+//         return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
+//       }
+
+//       // Calculate start and end of the month based on startDate
+//       const startOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), 1);
+//       const endOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, 0);
+
+//       // Check if the teacher has already added 6 courses this month
+//       const coursesCount = await Course.countDocuments({
+//         teacher_id,
+//         startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Count documents within the current month
+//       });
+
+//       if (coursesCount >= 6) {
+//         const nextMonthStart = getNextMonthStart(parsedStartDate);
+//         return res.status(400).json({
+//           error: `Teacher cannot add more than 6 courses in a month. Next available date to add courses: ${formatDate(nextMonthStart)}.`,
+//         });
+//       }
+
+//       // Check if the course types are valid for the current month
+//       const courses = await Course.find({
+//         teacher_id,
+//         startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Only consider courses in the current month
+//       });
+
+//       let groupCourseCount = 0;
+//       let singleCourseCount = 0;
+
+//       courses.forEach((course) => {
+//         if (course.type === "group_course") {
+//           groupCourseCount++;
+//         } else if (course.type === "single_course") {
+//           singleCourseCount++;
+//         }
+//       });
+
+//       // Check if the teacher can add more of the requested type
+//       if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
+//         return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
+//       }
+
+//       // Fetch payment details based on course type
+//       const user = await User.findById(teacher_id);
+//       if (!user) {
+//         return res.status(404).json({ error: "Teacher not found." });
+//       }
+
+//       let paymentId;
+//       if (type === "group_course") {
+//         paymentId = user.groupPaymentId;
+//       } else if (type === "single_course") {
+//         paymentId = user.singlePaymentId;
+//       }
+
+//       const paymentDetails = await TeacherPayment.findById(paymentId);
+//       if (!paymentDetails) {
+//         return res.status(404).json({ error: "You are only allowed to create course when admin approve your account and update your payment." });
+//       }
+
+//       console.log(paymentDetails);
+
+//       // Calculate end date excluding weekends
+//       const endDate = calculateEndDate(startDate, 21); // Excluding weekends
+//       const formattedStartDate = formatDate(startDate);
+//       const formattedEndDate = formatDate(endDate);
+
+//       // Get the profile picture path if uploaded
+//       const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+//       // Check if teacher has a firebase_token
+//       if (user.firebase_token) {
+//         const registrationToken = user.firebase_token;
+//         const title = `Course Added Successfuly`;
+//         const body = `Based on your profile information, the course will be reviewed by our admin team. Once approved, your course will be active and available for students.`;
+
+//         // Send notification
+//         const notificationResult = await sendFCMNotification(registrationToken, title, body);
+//         if (notificationResult.success) {
+//           console.log("Notification sent successfully:", notificationResult.response);
+//         } else {
+//           console.error("Failed to send notification:", notificationResult.error);
+//         }
+//         await addNotification(null, user._id, body, title, null);
+//       }
+
+//       // Create new course with parsed dates and payment details
+//       const newCourse = new Course({
+//         title,
+//         course_image,
+//         category_id,
+//         sub_category_id,
+//         type,
+//         startTime,
+//         endTime,
+//         startDate: formattedStartDate,
+//         endDate: formattedEndDate,
+//         teacher_id,
+//         payment_id: paymentDetails._id,
+//         amount: paymentDetails.amount,
+//         payment_type: paymentDetails.type,
+//       });
+
+//       const savedCourse = await newCourse.save();
+
+//       res.status(201).json({
+//         _id: savedCourse._id,
+//         title: savedCourse.title,
+//         course_image: savedCourse.course_image,
+//         category_id: savedCourse.category_id,
+//         sub_category_id: savedCourse.sub_category_id,
+//         type: savedCourse.type,
+//         startTime: savedCourse.startTime,
+//         endTime: savedCourse.endTime,
+//         startDate: savedCourse.startDate,
+//         endDate: savedCourse.endDate,
+//         teacher_id: savedCourse.teacher_id,
+//         payment_id: savedCourse.payment_id,
+//         amount: savedCourse.amount,
+//         payment_type: savedCourse.payment_type,
+//         status: true,
+//       });
+//     } catch (error) {
+//       console.error("Error adding course:", error.message);
+//       res.status(500).json({ error: "Internal Server Error" });
+//     }
+//   });
+// });
 const addCourse = asyncHandler(async (req, res, next) => {
-  req.uploadPath = "uploads/course";
-  upload.single("course_image")(req, res, async (err) => {
-    if (err) {
-      return next(new ErrorHandler(err.message, 400));
-    }
-    const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
-    const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
+      req.uploadPath = "uploads/course";
+      upload.single("course_image")(req, res, async (err) => {
+        if (err) {
+          return next(new ErrorHandler(err.message, 400));
+        }
+        const { title, category_id, sub_category_id, type, startTime, endTime } = req.body;
+        const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
 
-    try {
-      // Validate required fields
-      if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime || !startDate) {
-        return res.status(400).json({
-          error: "All fields (title, category_id, sub_category_id, type, startTime, endTime, startDate) are required.",
-        });
-      }
+        try {
+          // Validate required fields
+          if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime) {
+            return res.status(400).json({
+              error: "All fields (title, category_id, sub_category_id, type, startTime, endTime) are required.",
+            });
+          }
 
-      // Validate and parse startDate
-      const parsedStartDate = new Date(startDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
-      if (isNaN(parsedStartDate.getTime())) {
-        return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
-      }
+          // Check if the teacher has already added 6 courses
+          const coursesCount = await Course.countDocuments({
+            teacher_id,
+          });
 
-      // Calculate start and end of the month based on startDate
-      const startOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), 1);
-      const endOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, 0);
+          if (coursesCount >= 6) {
+            return res.status(400).json({
+              error: "Teacher cannot add more than 6 courses.",
+            });
+          }
 
-      // Check if the teacher has already added 6 courses this month
-      const coursesCount = await Course.countDocuments({
-        teacher_id,
-        startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Count documents within the current month
-      });
+          // Check if the course types are valid
+          const courses = await Course.find({
+            teacher_id,
+          });
 
-      if (coursesCount >= 6) {
-        const nextMonthStart = getNextMonthStart(parsedStartDate);
-        return res.status(400).json({
-          error: `Teacher cannot add more than 6 courses in a month. Next available date to add courses: ${formatDate(nextMonthStart)}.`,
-        });
-      }
+          let groupCourseCount = 0;
+          let singleCourseCount = 0;
 
-      // Check if the course types are valid for the current month
-      const courses = await Course.find({
-        teacher_id,
-        startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Only consider courses in the current month
-      });
+          courses.forEach((course) => {
+            if (course.type === "group_course") {
+              groupCourseCount++;
+            } else if (course.type === "single_course") {
+              singleCourseCount++;
+            }
+          });
 
-      let groupCourseCount = 0;
-      let singleCourseCount = 0;
+          // Check if the teacher can add more of the requested type
+          if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
+            return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
+          }
 
-      courses.forEach((course) => {
-        if (course.type === "group_course") {
-          groupCourseCount++;
-        } else if (course.type === "single_course") {
-          singleCourseCount++;
+          // Fetch payment details based on course type
+          const user = await User.findById(teacher_id);
+          if (!user) {
+            return res.status(404).json({ error: "Teacher not found." });
+          }
+
+          let paymentId;
+          if (type === "group_course") {
+            paymentId = user.groupPaymentId;
+          } else if (type === "single_course") {
+            paymentId = user.singlePaymentId;
+          }
+
+          const paymentDetails = await TeacherPayment.findById(paymentId);
+          if (!paymentDetails) {
+            return res.status(404).json({ error: "You are only allowed to create course when admin approve your account and update your payment." });
+          }
+
+          // Get the profile picture path if uploaded
+          const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+
+          // Check if teacher has a firebase_token
+          if (user.firebase_token) {
+            const registrationToken = user.firebase_token;
+            const title = `Course Added Successfully`;
+            const body = `Based on your profile information, the course will be reviewed by our admin team. Once approved, your course will be active and available for students.`;
+
+            // Send notification
+            const notificationResult = await sendFCMNotification(registrationToken, title, body);
+            if (notificationResult.success) {
+              console.log("Notification sent successfully:", notificationResult.response);
+            } else {
+              console.error("Failed to send notification:", notificationResult.error);
+            }
+            await addNotification(null, user._id, body, title, null);
+          }
+
+          // Create new course with payment details
+          const newCourse = new Course({
+            title,
+            course_image,
+            category_id,
+            sub_category_id,
+            type,
+            startTime,
+            endTime,
+            teacher_id,
+            payment_id: paymentDetails._id,
+            amount: paymentDetails.amount,
+            payment_type: paymentDetails.type,
+          });
+
+          const savedCourse = await newCourse.save();
+
+          res.status(201).json({
+            _id: savedCourse._id,
+            title: savedCourse.title,
+            course_image: savedCourse.course_image,
+            category_id: savedCourse.category_id,
+            sub_category_id: savedCourse.sub_category_id,
+            type: savedCourse.type,
+            startTime: savedCourse.startTime,
+            endTime: savedCourse.endTime,
+            teacher_id: savedCourse.teacher_id,
+            payment_id: savedCourse.payment_id,
+            amount: savedCourse.amount,
+            payment_type: savedCourse.payment_type,
+            status: true,
+          });
+        } catch (error) {
+          console.error("Error adding course:", error.message);
+          res.status(500).json({ error: "Internal Server Error" });
         }
       });
-
-      // Check if the teacher can add more of the requested type
-      if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
-        return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
-      }
-
-      // Fetch payment details based on course type
-      const user = await User.findById(teacher_id);
-      if (!user) {
-        return res.status(404).json({ error: "Teacher not found." });
-      }
-
-      let paymentId;
-      if (type === "group_course") {
-        paymentId = user.groupPaymentId;
-      } else if (type === "single_course") {
-        paymentId = user.singlePaymentId;
-      }
-
-      const paymentDetails = await TeacherPayment.findById(paymentId);
-      if (!paymentDetails) {
-        return res.status(404).json({ error: "You are only allowed to create course when admin approve your account and update your payment." });
-      }
-
-      console.log(paymentDetails);
-
-      // Calculate end date excluding weekends
-      const endDate = calculateEndDate(startDate, 21); // Excluding weekends
-      const formattedStartDate = formatDate(startDate);
-      const formattedEndDate = formatDate(endDate);
-
-      // Get the profile picture path if uploaded
-      const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
-      // Check if teacher has a firebase_token
-      if (user.firebase_token) {
-        const registrationToken = user.firebase_token;
-        const title = `Course Added Successfuly`;
-        const body = `Based on your profile information, the course will be reviewed by our admin team. Once approved, your course will be active and available for students.`;
-
-        // Send notification
-        const notificationResult = await sendFCMNotification(registrationToken, title, body);
-        if (notificationResult.success) {
-          console.log("Notification sent successfully:", notificationResult.response);
-        } else {
-          console.error("Failed to send notification:", notificationResult.error);
-        }
-        await addNotification(null, user._id, body, title, null);
-      }
-
-      // Create new course with parsed dates and payment details
-      const newCourse = new Course({
-        title,
-        course_image,
-        category_id,
-        sub_category_id,
-        type,
-        startTime,
-        endTime,
-        startDate: formattedStartDate,
-        endDate: formattedEndDate,
-        teacher_id,
-        payment_id: paymentDetails._id,
-        amount: paymentDetails.amount,
-        payment_type: paymentDetails.type,
-      });
-
-      const savedCourse = await newCourse.save();
-
-      res.status(201).json({
-        _id: savedCourse._id,
-        title: savedCourse.title,
-        course_image: savedCourse.course_image,
-        category_id: savedCourse.category_id,
-        sub_category_id: savedCourse.sub_category_id,
-        type: savedCourse.type,
-        startTime: savedCourse.startTime,
-        endTime: savedCourse.endTime,
-        startDate: savedCourse.startDate,
-        endDate: savedCourse.endDate,
-        teacher_id: savedCourse.teacher_id,
-        payment_id: savedCourse.payment_id,
-        amount: savedCourse.amount,
-        payment_type: savedCourse.payment_type,
-        status: true,
-      });
-    } catch (error) {
-      console.error("Error adding course:", error.message);
-      res.status(500).json({ error: "Internal Server Error" });
-    }
-  });
 });
 
 const updateCourseDates = asyncHandler(async (req, res) => {
@@ -422,7 +534,7 @@ const updateCourseDates = asyncHandler(async (req, res) => {
 
     // Find the course by course_id and teacher_id
     const course = await Course.findById({ _id: course_id, teacher_id: teacher_id });
-    console.log(course);
+
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
@@ -431,9 +543,6 @@ const updateCourseDates = asyncHandler(async (req, res) => {
     const newEndDate = calculateEndDate(newStartDate, 21); // Excluding weekends
     const formattedNewStartDate = formatDate(newStartDate);
     const formattedNewEndDate = formatDate(newEndDate);
-
-    console.log(formattedNewStartDate);
-    console.log(formattedNewEndDate);
 
     // Update course with new dates
     course.startDate = formattedNewStartDate;
@@ -528,6 +637,8 @@ const getTodayCourse = asyncHandler(async (req, res) => {
       return acc;
     }, {});
 
+    const teacherDetails = await User.findById(teacherId).select("teacherUnavailabilityDates verifyStatus");
+
     // Adding user details and calculating days for each course
     const coursesWithUsersAndDays = courses.map((course) => {
       const daysArray = calculateDaysArray(course.startDate, course.endDate);
@@ -552,7 +663,7 @@ const getTodayCourse = asyncHandler(async (req, res) => {
 
     console.log("Number of unread notifications:", unreadCount);
 
-    res.status(200).json({ courses: coursesWithUsersAndDays, notificationCount: unreadCount });
+    res.status(200).json({ courses: coursesWithUsersAndDays, notificationCount: unreadCount,teacherDetails });
   } catch (error) {
     console.error("Error fetching today's courses:", error.message);
     res.status(500).json({ error: "Internal Server Error" });
@@ -572,6 +683,8 @@ const getMyClasses = asyncHandler(async (req, res) => {
     })
       .sort({ startTime: -1 }) // Sort by startTime descending order
       .exec();
+
+
 
     if (!courses || courses.length === 0) {
       return res.status(200).json({
@@ -614,6 +727,8 @@ const getMyClasses = asyncHandler(async (req, res) => {
       return acc;
     }, {});
 
+    const teacherDetails = await User.findById(teacher_id).select("teacherUnavailabilityDates verifyStatus");
+
     const coursesWithUsers = [];
 
     // Iterate over each course to add users and calculate days array
@@ -644,7 +759,7 @@ const getMyClasses = asyncHandler(async (req, res) => {
       coursesWithUsers.push(courseWithUsers);
     }
 
-    res.status(200).json({ courses: coursesWithUsers });
+    res.status(200).json({ courses: coursesWithUsers, teacherDetails });
   } catch (error) {
     console.error("Error fetching today's courses:", error.message);
     res.status(500).json({ error: "Internal Server Error" });

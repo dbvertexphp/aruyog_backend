@@ -2400,8 +2400,8 @@ const updateUserPayment = async (req, res, next) => {
 };
 
 
-const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
-  const { teacher_id, type } = req.body;
+const getTeacherAndCourseByTeacher_Id = async (req, res, next) => {
+  const { teacher_id } = req.body;
   const user_id = req.headers.userID;
   try {
     // Find the teacher by ID and populate payment information
@@ -2416,11 +2416,8 @@ const getTeacherAndCourseByTeacher_IdAndType = async (req, res, next) => {
     // Find courses for the teacher with the specified type
     const courses = await Course.find({
       teacher_id: teacher_id,
-      type: type,
       deleted_at: null,
     });
-
-    console.log(courses);
 
     if (!courses || courses.length === 0) {
       return res.status(200).json({
@@ -3181,7 +3178,7 @@ module.exports = {
   updateAdvanceSinglePayment,
   updateAdvanceGroupPayment,
   updateUserPayment,
-  getTeacherAndCourseByTeacher_IdAndType,
+  getTeacherAndCourseByTeacher_Id,
   addFavoriteTeacher,
   removeFavoriteTeacher,
   getFavoriteTeachers,

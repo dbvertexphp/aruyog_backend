@@ -18,7 +18,7 @@ teacherRoutes.route("/updateTeacherDocument").post(protect, Authorization(["teac
 teacherRoutes.route("/getteacherUnavailabilityDateById").post(protect, Authorization(["teacher"]), getteacherUnavailabilityDateById);
 
 
-teacherRoutes.route("/updateCourseDates").post(protect, Authorization(["admin"]), updateCourseDates);
+teacherRoutes.route("/updateCourseDates").post(protect, updateCourseDates);
 teacherRoutes.route("/courseActiveStatus").post(protect, Authorization(["admin"]), CourseActiveStatus);
 // teacherRoutes.route("/autoDeactivateCourses").post(autoDeactivateCourses);
 

@@ -6,21 +6,45 @@ const baseURL = process.env.BASE_URL;
 const { User } = require("../models/userModel.js");
 const { addNotification } = require("./teacherNotificationController");
 const { sendFCMNotification } = require("./notificationControllers");
+const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
+const moment = require("moment-business-days");
 
 const addTransaction = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;
-  const { teacher_id, course_id, transaction_id, amount, payment_id, payment_status } = req.body;
+  const { teacher_id, course_id, transaction_id, amount, payment_id, payment_status, newStartDate } = req.body;
 
-  if (!user_id || !teacher_id || !course_id || !transaction_id || !amount || !payment_id || !payment_status) {
+  if (!user_id || !teacher_id || !course_id || !transaction_id || !amount || !payment_id || !payment_status || !newStartDate) {
     return res.status(400).json({ message: "Invalid input" });
   }
-
   try {
+      // Validate and parse new startDate
+    const parsedNewStartDate = new Date(newStartDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
+    if (isNaN(parsedNewStartDate.getTime())) {
+      return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
+    }
     const course = await Course.findById(course_id);
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
+
+    // Retrieve teacher's unavailable dates
+    const teacherDate = await User.findById(teacher_id);
+    if (!teacherDate) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+    const teacherUnavailabilityDates = teacherDate.teacherUnavailabilityDates || [];
+
+     // Calculate new end date excluding weekends
+     const newEndDate = calculateEndDate(parsedNewStartDate, 21, teacherUnavailabilityDates); // Excluding weekends
+     const formattedNewStartDate = formatDate(parsedNewStartDate);
+     const formattedNewEndDate = formatDate(newEndDate);
+
+     // Update course with new dates
+     course.startDate = formattedNewStartDate;
+     course.endDate = formattedNewEndDate;
+
+     const updatedCourse = await course.save();
 
     // Check if the user has already purchased the course
     if (course.userIds.includes(user_id)) {
@@ -31,7 +55,7 @@ const addTransaction = asyncHandler(async (req, res) => {
     }
 
     // Check the type of course to determine maximum userIds allowed
-    const maxUserIdsAllowed = course.type === "group_course" ? 3 : 1;
+    const maxUserIdsAllowed = course.type === "group_course" ? 4 : 1;
 
     if (course.userIds.length >= maxUserIdsAllowed) {
       return res.status(400).json({
@@ -65,7 +89,7 @@ const addTransaction = asyncHandler(async (req, res) => {
 
     // Send notification to teacher
     const teacher = await User.findById(teacher_id);
-    console.log(teacher);
+
     if (teacher && teacher.firebase_token) {
       const registrationToken = teacher.firebase_token;
       const title = "New Course Purchase";
@@ -111,6 +135,32 @@ const addTransaction = asyncHandler(async (req, res) => {
   }
 });
 
+// Helper function to format date in YYYY/MM/DD format
+function formatDate(date) {
+      const d = new Date(date);
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${year}/${month}/${day}`;
+}
+// Function to calculate end date excluding weekends and unavailable dates
+const calculateEndDate = (startDate, daysToAdd, unavailableDates) => {
+      console.log(unavailableDates);
+
+      let currentDay = new Date(startDate);
+      let count = 0;
+
+      while (count < daysToAdd) {
+        currentDay = addDays(currentDay, 1);
+
+        const formattedDate = formatDate(currentDay);
+        if (!isWeekend(currentDay) && !unavailableDates.includes(formattedDate)) {
+          count++;
+        }
+      }
+
+      return currentDay.toISOString().split("T")[0];
+};
 const getAllTransactions = asyncHandler(async (req, res) => {
   const { page = 1, search = "", Short = "" } = req.body;
   const perPage = 10; // You can adjust this according to your requirements

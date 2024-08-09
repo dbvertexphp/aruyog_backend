@@ -33,11 +33,11 @@ const courseSchema = new Schema(
     },
     startDate: {
       type: String,
-      required: true,
+      default: null
     },
     endDate: {
       type: String,
-      required: true,
+      default: null
     },
     userIds: {
       type: [
@@ -48,9 +48,9 @@ const courseSchema = new Schema(
       ],
       validate: {
         validator: function (v) {
-          return v.length <= 3;
+          return v.length <= 4;
         },
-        message: "Course cannot have more than 3 users",
+        message: "Course cannot have more than 4 users",
       },
     },
     askDemoids: {

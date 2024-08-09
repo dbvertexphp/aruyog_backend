@@ -50,7 +50,7 @@ const {
   updateAdvanceSinglePayment,
   updateAdvanceGroupPayment,
   updateUserPayment,
-  getTeacherAndCourseByTeacher_IdAndType,
+  getTeacherAndCourseByTeacher_Id,
   addFavoriteTeacher,
   removeFavoriteTeacher,
   getTeachersBySubcategory,
@@ -102,7 +102,7 @@ userRoutes.route("/askForDemo").post(protect, Authorization(["student"]), askFor
 /*------------- Teacher/Admin Both apis --------------------- */
 userRoutes.route("/getAllSearchTeachers").get(protect, getAllSearchTeachers);
 userRoutes.route("/getAllTeachersByAdmin").get(protect, getAllTeachersByAdmin);
-userRoutes.route("/getTeacherAndCourseByTeacher_IdAndType").post(protect, Authorization(["student", "teacher"]), getTeacherAndCourseByTeacher_IdAndType);
+userRoutes.route("/getTeacherAndCourseByTeacher_Id").post(protect, Authorization(["student", "teacher"]), getTeacherAndCourseByTeacher_Id);
 userRoutes.route("/addBankDetails").post(protect, Authorization(["teacher"]), bank_Detail_create);
 userRoutes.route("/getBankDetails").get(protect, Authorization(["teacher"]), getBankDetails);
 userRoutes.route("/getBankDetailsAdmin/:teacher_id").get(protect, Authorization(["teacher", "admin"]), getBankDetailsAdmin);
