@@ -29,7 +29,7 @@ const path = require("path");
 const { subCategoryRoutes } = require("./routes/subCategoryRoutes.js");
 const { teacherRoutes } = require("./routes/teacherRoutes.js");
 const { teacherNotificationsRoutes } = require("./routes/teacherNotificationRoutes.js");
-const { autoDeactivateCourses } = require("./controllers/teacherController.js");
+const { autoDeactivateCourses,notifyTeachersAboutEndingCourses } = require("./controllers/teacherController.js");
 // const serviceAccount = require("./serviceAccountKey.json");
 
 // const admin = require("firebase-admin");
@@ -81,6 +81,7 @@ app.use("/api/admin", adminRoutes);
 cron.schedule("0 0 * * *", () => {
   console.log("Running a task every day at midnight");
   autoDeactivateCourses();
+  notifyTeachersAboutEndingCourses();
 });
 
 if (process.env.NODE_ENV == "production") {

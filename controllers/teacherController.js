@@ -13,7 +13,6 @@ const upload = require("../middleware/uploadMiddleware.js");
 const fs = require("fs");
 const { addDays, isWeekend, addMonths, getMonth, getDay } = require("date-fns");
 const moment = require("moment-business-days");
-
 const { log } = require("util");
 const TeacherPayment = require("../models/TeacherPaymentModel.js");
 const Transaction = require("../models/transactionModel.js");
@@ -244,153 +243,7 @@ function deleteFile(filePath) {
   });
 }
 
-// const addCourse = asyncHandler(async (req, res, next) => {
-//   req.uploadPath = "uploads/course";
-//   upload.single("course_image")(req, res, async (err) => {
-//     if (err) {
-//       return next(new ErrorHandler(err.message, 400));
-//     }
-//     const { title, category_id, sub_category_id, type, startTime, endTime, startDate } = req.body;
-//     const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
 
-//     try {
-//       // Validate required fields
-//       if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime || !startDate) {
-//         return res.status(400).json({
-//           error: "All fields (title, category_id, sub_category_id, type, startTime, endTime, startDate) are required.",
-//         });
-//       }
-
-//       // Validate and parse startDate
-//       const parsedStartDate = new Date(startDate.replace(/\//g, "-")); // Replace "/" with "-" for correct parsing
-//       if (isNaN(parsedStartDate.getTime())) {
-//         return res.status(400).json({ error: "Invalid date format. Use YYYY/MM/DD." });
-//       }
-
-//       // Calculate start and end of the month based on startDate
-//       const startOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth(), 1);
-//       const endOfMonth = new Date(parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, 0);
-
-//       // Check if the teacher has already added 6 courses this month
-//       const coursesCount = await Course.countDocuments({
-//         teacher_id,
-//         startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Count documents within the current month
-//       });
-
-//       if (coursesCount >= 6) {
-//         const nextMonthStart = getNextMonthStart(parsedStartDate);
-//         return res.status(400).json({
-//           error: `Teacher cannot add more than 6 courses in a month. Next available date to add courses: ${formatDate(nextMonthStart)}.`,
-//         });
-//       }
-
-//       // Check if the course types are valid for the current month
-//       const courses = await Course.find({
-//         teacher_id,
-//         startDate: { $gte: formatDate(startOfMonth), $lte: formatDate(endOfMonth) }, // Only consider courses in the current month
-//       });
-
-//       let groupCourseCount = 0;
-//       let singleCourseCount = 0;
-
-//       courses.forEach((course) => {
-//         if (course.type === "group_course") {
-//           groupCourseCount++;
-//         } else if (course.type === "single_course") {
-//           singleCourseCount++;
-//         }
-//       });
-
-//       // Check if the teacher can add more of the requested type
-//       if ((type === "group_course" && groupCourseCount >= 3) || (type === "single_course" && singleCourseCount >= 3)) {
-//         return res.status(400).json({ error: `Teacher cannot add more than 3 ${type} courses.` });
-//       }
-
-//       // Fetch payment details based on course type
-//       const user = await User.findById(teacher_id);
-//       if (!user) {
-//         return res.status(404).json({ error: "Teacher not found." });
-//       }
-
-//       let paymentId;
-//       if (type === "group_course") {
-//         paymentId = user.groupPaymentId;
-//       } else if (type === "single_course") {
-//         paymentId = user.singlePaymentId;
-//       }
-
-//       const paymentDetails = await TeacherPayment.findById(paymentId);
-//       if (!paymentDetails) {
-//         return res.status(404).json({ error: "You are only allowed to create course when admin approve your account and update your payment." });
-//       }
-
-//       console.log(paymentDetails);
-
-//       // Calculate end date excluding weekends
-//       const endDate = calculateEndDate(startDate, 21); // Excluding weekends
-//       const formattedStartDate = formatDate(startDate);
-//       const formattedEndDate = formatDate(endDate);
-
-//       // Get the profile picture path if uploaded
-//       const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
-//       // Check if teacher has a firebase_token
-//       if (user.firebase_token) {
-//         const registrationToken = user.firebase_token;
-//         const title = `Course Added Successfuly`;
-//         const body = `Based on your profile information, the course will be reviewed by our admin team. Once approved, your course will be active and available for students.`;
-
-//         // Send notification
-//         const notificationResult = await sendFCMNotification(registrationToken, title, body);
-//         if (notificationResult.success) {
-//           console.log("Notification sent successfully:", notificationResult.response);
-//         } else {
-//           console.error("Failed to send notification:", notificationResult.error);
-//         }
-//         await addNotification(null, user._id, body, title, null);
-//       }
-
-//       // Create new course with parsed dates and payment details
-//       const newCourse = new Course({
-//         title,
-//         course_image,
-//         category_id,
-//         sub_category_id,
-//         type,
-//         startTime,
-//         endTime,
-//         startDate: formattedStartDate,
-//         endDate: formattedEndDate,
-//         teacher_id,
-//         payment_id: paymentDetails._id,
-//         amount: paymentDetails.amount,
-//         payment_type: paymentDetails.type,
-//       });
-
-//       const savedCourse = await newCourse.save();
-
-//       res.status(201).json({
-//         _id: savedCourse._id,
-//         title: savedCourse.title,
-//         course_image: savedCourse.course_image,
-//         category_id: savedCourse.category_id,
-//         sub_category_id: savedCourse.sub_category_id,
-//         type: savedCourse.type,
-//         startTime: savedCourse.startTime,
-//         endTime: savedCourse.endTime,
-//         startDate: savedCourse.startDate,
-//         endDate: savedCourse.endDate,
-//         teacher_id: savedCourse.teacher_id,
-//         payment_id: savedCourse.payment_id,
-//         amount: savedCourse.amount,
-//         payment_type: savedCourse.payment_type,
-//         status: true,
-//       });
-//     } catch (error) {
-//       console.error("Error adding course:", error.message);
-//       res.status(500).json({ error: "Internal Server Error" });
-//     }
-//   });
-// });
 const addCourse = asyncHandler(async (req, res, next) => {
       req.uploadPath = "uploads/course";
       upload.single("course_image")(req, res, async (err) => {
@@ -766,6 +619,48 @@ const getMyClasses = asyncHandler(async (req, res) => {
   }
 });
 
+// Function to send notifications to teachers 3 days before the course end date
+const notifyTeachersAboutEndingCourses = async () => {
+      try {
+        // Get today's date and the date 3 days from now
+        const today = new Date();
+        const targetDate = new Date(today);
+        targetDate.setDate(today.getDate() + 3);
+
+        const formattedTargetDate = formatDate(targetDate);
+
+        // Find courses ending in 3 days
+        const coursesEndingSoon = await Course.find({
+          endDate: formattedTargetDate,
+        });
+
+        // Send notifications to the corresponding teachers
+        for (const course of coursesEndingSoon) {
+          const teacher = await User.findById(course.teacher_id);
+
+          if (teacher && teacher.firebase_token) {
+            const registrationToken = teacher.firebase_token;
+            const title = "Course Ending Soon";
+            const body = `Your course "${course.title}" will end on ${course.endDate}. Please prepare accordingly.`;
+
+            const notificationResult = await sendFCMNotification(registrationToken, title, body);
+            if (notificationResult.success) {
+              console.log(`Notification sent to ${teacher._id} successfully:`, notificationResult.response);
+            } else {
+              console.error(`Failed to send notification to ${teacher._id}:`, notificationResult.error);
+            }
+
+            // Add the notification to the teacher's notification collection
+            await addNotification(null, teacher._id, body, title, null);
+          }
+        }
+
+        console.log("Notification task completed successfully");
+      } catch (error) {
+        console.error("Error in notification task:", error.message);
+      }
+};
+
 function calculateDaysArray(startDate, endDate) {
   const daysArray = [];
   let currentDate = new Date(startDate);
@@ -1042,4 +937,4 @@ const updateTeacherDocument = async (req, res) => {
 
 
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses };

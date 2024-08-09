@@ -782,9 +782,10 @@ const getAllSearchTeachers = asyncHandler(async (req, res) => {
     // Search keyword from query params
     const searchKeyword = req.query.search || "";
     const categoryKeyword = req.query.category_id || "";
+    const subCategoryKeyword = req.query.subCategoryId || "";
 
     // Fetch the list of teacher IDs from the Course table that match the category_id
-    const courses = await Course.find({ category_id: categoryKeyword }).select("teacher_id");
+    const courses = await Course.find({ category_id: categoryKeyword, sub_category_id: subCategoryKeyword }).select("teacher_id");
     const teacherIds = courses.map((course) => course.teacher_id.toString());
 
     // Query to find teachers based on the search keyword, category, and deleted_at null

@@ -7,7 +7,7 @@ const teacherRoutes = express.Router();
 
 // Apply protect and Authorization middleware to updateTeacherProfile route
 teacherRoutes.put("/updateTeacherProfile", protect, Authorization(["teacher"]), updateTeacherProfileData);
-teacherRoutes.get("/getTeacherProfileData", protect, Authorization(["teacher"]), getTeacherProfileData);
+teacherRoutes.get("/getTeacherProfileData", protect, getTeacherProfileData);
 teacherRoutes.put("/addCourse", protect, Authorization(["teacher"]), addCourse);
 
 teacherRoutes.route("/getTodayCourse").get(protect, Authorization(["teacher"]), getTodayCourse);
