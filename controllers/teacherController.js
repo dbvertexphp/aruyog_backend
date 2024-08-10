@@ -231,21 +231,20 @@ function deleteFile(filePath) {
   });
 }
 
-
 const addCourse = asyncHandler(async (req, res, next) => {
       req.uploadPath = "uploads/course";
       upload.single("course_image")(req, res, async (err) => {
         if (err) {
           return next(new ErrorHandler(err.message, 400));
         }
-        const { title, category_id, sub_category_id, type, startTime, endTime } = req.body;
+        const { category_id, sub_category_id, type, startTime, endTime } = req.body;
         const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
 
         try {
           // Validate required fields
-          if (!title || !category_id || !sub_category_id || !type || !startTime || !endTime) {
+          if ( !category_id || !sub_category_id || !type || !startTime || !endTime) {
             return res.status(400).json({
-              error: "All fields (title, category_id, sub_category_id, type, startTime, endTime) are required.",
+              error: "All fields ( category_id, sub_category_id, type, startTime, endTime) are required.",
             });
           }
 
@@ -320,7 +319,6 @@ const addCourse = asyncHandler(async (req, res, next) => {
 
           // Create new course with payment details
           const newCourse = new Course({
-            title,
             course_image,
             category_id,
             sub_category_id,
@@ -337,7 +335,6 @@ const addCourse = asyncHandler(async (req, res, next) => {
 
           res.status(201).json({
             _id: savedCourse._id,
-            title: savedCourse.title,
             course_image: savedCourse.course_image,
             category_id: savedCourse.category_id,
             sub_category_id: savedCourse.sub_category_id,
@@ -393,7 +390,6 @@ const updateCourseDates = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       _id: updatedCourse._id,
-      title: updatedCourse.title,
       category_id: updatedCourse.category_id,
       sub_category_id: updatedCourse.sub_category_id,
       type: updatedCourse.type,
@@ -629,7 +625,7 @@ const notifyTeachersAboutEndingCourses = async () => {
           if (teacher && teacher.firebase_token) {
             const registrationToken = teacher.firebase_token;
             const title = "Course Ending Soon";
-            const body = `Your course "${course.title}" will end on ${course.endDate}. Please prepare accordingly.`;
+            const body = `Your course will end on ${course.endDate}. Please prepare accordingly.`;
 
             const notificationResult = await sendFCMNotification(registrationToken, title, body);
             if (notificationResult.success) {
@@ -730,7 +726,7 @@ const CourseActiveStatus = async (req, res) => {
       if (teacher.firebase_token) {
         const registrationToken = teacher.firebase_token;
         const title = `Course Deactivated`;
-        const body = `${user.title} has been deactivated.`;
+        const body = `Course has been deactivated.`;
 
         // Send notification
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
@@ -739,7 +735,7 @@ const CourseActiveStatus = async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
-        await addNotification(null, teacher_id, "has been deactivated ", user.title, null);
+        await addNotification(null, teacher_id, body, title, null);
       }
     } else {
       const updatedUser = await Course.findByIdAndUpdate(
@@ -762,7 +758,7 @@ const CourseActiveStatus = async (req, res) => {
       if (teacher.firebase_token) {
         const registrationToken = teacher.firebase_token;
         const title = `Course Activated`;
-        const body = `${user.title} has been activated.`;
+        const body = `Course has been activated.`;
 
         // Send notification
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
@@ -771,7 +767,7 @@ const CourseActiveStatus = async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
-        await addNotification(null, teacher_id, "has been activated", user.title, null);
+        await addNotification(null, teacher_id, body, title, null);
       }
     }
     return res.status(200).json({
@@ -809,7 +805,7 @@ const autoDeactivateCourses = async () => {
       if (teacher && teacher.firebase_token) {
         const registrationToken = teacher.firebase_token;
         const title = `Course Deactivated`;
-        const body = `The course "${course.title}" has been automatically deactivated because the end date has passed.`;
+        const body = `The course has been automatically deactivated because the end date has passed.`;
 
         // Send notification
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
@@ -922,7 +918,36 @@ const updateTeacherDocument = async (req, res) => {
       });
 };
 
+const updateTeacherStatus = async (req, res) => {
+      const { teacher_id, verifyStatus } = req.body;
+      console.log(req.body);
 
 
+      if (!teacher_id || !verifyStatus) {
+        return res.status(400).json({ message: 'Teacher ID and verify status are required' });
+      }
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses };
+      try {
+        const updatedUser = await User.findByIdAndUpdate(
+          teacher_id,
+          {
+            $set: {
+              verifyStatus,
+            },
+          },
+          { new: true, runValidators: true } // Return the updated document and run validators
+        );
+
+        if (!updatedUser) {
+          return res.status(404).json({ message: 'User not found' });
+        }
+
+        res.status(200).json({ message: 'Verify status updated successfully', data: updatedUser });
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Internal server error', error });
+      }
+};
+
+
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus };

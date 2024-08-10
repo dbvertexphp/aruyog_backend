@@ -123,7 +123,7 @@ const addTransaction = asyncHandler(async (req, res) => {
     // }
 
     // Add notification to the teacher's notification collection
-    await addNotification(user_id, teacher_id, "New Transaction", course.title, amount);
+    await addNotification(user_id, teacher_id, body, title, amount);
 
     res.status(201).json({
       message: "Transaction added successfully",

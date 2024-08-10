@@ -27,8 +27,8 @@ const addNotification = async (userId, teacher_Id, title, course_title, amount) 
     const newNotification = new TeacherNotification({
       user_id: userId,
       teacher_id: teacher_Id,
-      title,
       body: course_title,
+      title,
       amount: amount,
     });
 

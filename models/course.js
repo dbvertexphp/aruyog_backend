@@ -4,10 +4,6 @@ const moment = require("moment");
 
 const courseSchema = new Schema(
   {
-    title: {
-      type: String,
-      required: true,
-    },
     course_image: {
       type: String,
     },

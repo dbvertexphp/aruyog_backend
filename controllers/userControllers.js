@@ -792,6 +792,7 @@ const getAllSearchTeachers = asyncHandler(async (req, res) => {
     const query = {
       role: "teacher",
       deleted_at: null,
+      verifyStatus: "approved",
       _id: { $in: teacherIds },
       $or: [{ first_name: { $regex: searchKeyword, $options: "i" } }, { last_name: { $regex: searchKeyword, $options: "i" } }],
     };
@@ -1490,80 +1491,6 @@ const getNotificationId = asyncHandler(async (req, res) => {
   }
 });
 
-// const UserAdminStatus = asyncHandler(async (req, res) => {
-//   const userId = req.body.userId;
-//   try {
-//     // Find the video by its _id
-//     const user = await User.findById(userId);
-
-//     if (!user) {
-//       return res.status(404).json({ message: "User not found" });
-//     }
-//     // Check if deleted_at field is null or has a value
-//     if (user.deleted_at === null) {
-//       const updatedUser = await User.findByIdAndUpdate(
-//         userId,
-//         {
-//           $set: {
-//             deleted_at: new Date(),
-//           },
-//         },
-//         { new: true }
-//       );
-
-//       const firebase_token = user.firebase_token;
-//       console.log("Deactivated");
-//       // Check if teacher has a firebase_token
-//       if (firebase_token) {
-//         const registrationToken = firebase_token;
-//         const title = `${user.full_name} Deactivated`;
-//         const body = `${user.full_name} Deactivated`;
-
-//         // Send notification
-//         const notificationResult = await sendFCMNotification(registrationToken, title, body);
-//         if (notificationResult.success) {
-//           console.log("Notification sent successfully:", notificationResult.response);
-//         } else {
-//           console.error("Failed to send notification:", notificationResult.error);
-//         }
-//         await addNotification(null, userId, "Status Deactivated", null, null);
-//       }
-//     } else {
-//       const updatedUser = await User.findByIdAndUpdate(
-//         userId,
-//         {
-//           $set: {
-//             deleted_at: null,
-//           },
-//         },
-//         { new: true }
-//       );
-//       const firebase_token = user.firebase_token;
-//       console.log("Activated");
-//       // Check if teacher has a firebase_token
-//       if (firebase_token) {
-//         const registrationToken = firebase_token;
-//         const title = `${user.full_name} Activated`;
-//         const body = `${user.full_name} Activated`;
-
-//         // Send notification
-//         const notificationResult = await sendFCMNotification(registrationToken, title, body);
-//         if (notificationResult.success) {
-//           console.log("Notification sent successfully:", notificationResult.response);
-//         } else {
-//           console.error("Failed to send notification:", notificationResult.error);
-//         }
-//         await addNotification(null, userId, "Status Activated", null, null);
-//       }
-//     }
-//     return res.status(200).json({
-//       message: "User soft delete status toggled successfully",
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return res.status(500).json({ message: "Internal Server Error" });
-//   }
-// });
 
 const UserAdminStatus = asyncHandler(async (req, res) => {
   const userId = req.body.userId;
@@ -1597,7 +1524,7 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
       } else {
         console.error("Failed to send notification:", notificationResult.error);
       }
-      await addNotification(null, userId, `${newDeletedAt ? deactive : active}`, null, null);
+      await addNotification(null, userId, `${newDeletedAt ? deactive : active}`, title, null);
     }
 
     // Handle FCM notification for each course of the user
@@ -1614,7 +1541,7 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
         } else {
           console.error("Failed to send notification:", notificationResult.error);
         }
-        await addNotification(null, userId, `Course ${newDeletedAt ? "Deactivated" : "Activated"}`, course.title, null);
+        await addNotification(null, userId, `Course ${newDeletedAt ? "Deactivated" : "Activated"}`, title, null);
       }
     }
 
@@ -1930,9 +1857,12 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   const perPage = 10; // You can adjust this according to your requirements
 
   // Build the query based on search and teacher_id
-  const query = {
-    $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
-  };
+//   const query = {
+//     $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
+//   };
+const query = {
+      $and: [{ teacher_id }],
+};
 
   // Sorting based on sort field
   let sortCriteria = {};
@@ -2383,7 +2313,7 @@ const updateUserPayment = async (req, res, next) => {
             } else {
               console.error("Failed to send notification:", notificationResult.error);
             }
-            await addNotification(null, userId, "Payment Updated", null, null);
+            await addNotification(null, userId, body, title, null);
           }
         }
 
@@ -2406,7 +2336,10 @@ const getTeacherAndCourseByTeacher_Id = async (req, res, next) => {
   const user_id = req.headers.userID;
   try {
     // Find the teacher by ID and populate payment information
-    const teacher = await User.findById(teacher_id).populate({
+    const teacher = await User.findOne({
+      _id: teacher_id,
+      verifyStatus: "approved"
+    }).populate({
       path: "payment_id",
     });
 
