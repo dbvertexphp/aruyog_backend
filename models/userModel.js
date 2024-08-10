@@ -50,7 +50,7 @@ const userSchema = mongoose.Schema({
   verifyStatus: {
     type: String,
     enum: ['pending', 'approved', 'not-approved'],
-    default: 'pending'
+    default: 'not-approved'
   },
   teacherDocument: {
     type: {

@@ -516,7 +516,12 @@ const getMyClasses = asyncHandler(async (req, res) => {
     const courses = await Course.find({
       teacher_id,
       deleted_at: null,
-      $expr: { $eq: [{ $month: { $dateFromString: { dateString: "$startDate", format: "%Y/%m/%d" } } }, currentMonth] },
+      $or: [
+        {
+          $expr: { $eq: [{ $month: { $dateFromString: { dateString: "$startDate", format: "%Y/%m/%d" } } }, currentMonth] }
+        },
+        { startDate: null } // Include courses where startDate is null
+      ]
     })
       .sort({ startTime: -1 }) // Sort by startTime descending order
       .exec();
