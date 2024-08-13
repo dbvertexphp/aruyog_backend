@@ -286,12 +286,13 @@ const addCourse = asyncHandler(async (req, res, next) => {
             return res.status(404).json({ error: "Teacher not found." });
           }
 
-          let paymentId;
-          if (type === "group_course") {
-            paymentId = user.groupPaymentId;
-          } else if (type === "single_course") {
-            paymentId = user.singlePaymentId;
-          }
+          let paymentDetails = null;
+      if (type === "group_course" && user.groupPaymentId) {
+        paymentDetails = await TeacherPayment.findById(user.groupPaymentId);
+      } else if (type === "single_course" && user.singlePaymentId) {
+        paymentDetails = await TeacherPayment.findById(user.singlePaymentId);
+      }
+
 
           // Get the profile picture path if uploaded
           const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
@@ -321,6 +322,10 @@ const addCourse = asyncHandler(async (req, res, next) => {
             startTime,
             endTime,
             teacher_id,
+            payment_id: paymentDetails ? paymentDetails._id : null,
+        amount: paymentDetails ? paymentDetails.amount : null,
+        payment_type: paymentDetails ? paymentDetails.type : null,
+        deleted_at: null
           });
 
           const savedCourse = await newCourse.save();
@@ -931,52 +936,169 @@ const updateTeacherDocument = async (req, res) => {
       });
 };
 
+// const updateTeacherStatus = async (req, res) => {
+//       const { teacher_id, verifyStatus } = req.body;
+
+//       if (!teacher_id || !verifyStatus) {
+//         return res.status(400).json({ message: 'Teacher ID and verify status are required' });
+//       }
+
+//       try {
+//         const updatedUser = await User.findByIdAndUpdate(
+//           teacher_id,
+//           {
+//             $set: {
+//               verifyStatus,
+//             },
+//           },
+//           { new: true, runValidators: true } // Return the updated document and run validators
+//         );
+
+//         if (!updatedUser) {
+//           return res.status(404).json({ message: 'User not found' });
+//         }
+//         else{
+//             if (updatedUser.firebase_token) {
+//                   const registrationToken = updatedUser.firebase_token;
+//                   const title = `Profile Update Successfully`;
+//                   const body = `Your profile has been ${verifyStatus} by the admin`;
+
+//                   // Send notification
+//                   const notificationResult = await sendFCMNotification(registrationToken, title, body);
+//                   if (notificationResult.success) {
+//                     console.log("Notification sent successfully:", notificationResult.response);
+//                   } else {
+//                     console.error("Failed to send notification:", notificationResult.error);
+//                   }
+//                   await addNotification(null, updatedUser._id, body, title, null);
+//                 }
+//           }
+
+//         res.status(200).json({ message: 'Verify status updated successfully', data: updatedUser });
+//       } catch (error) {
+//         console.error(error);
+//         res.status(500).json({ message: 'Internal server error', error });
+//       }
+// };
 const updateTeacherStatus = async (req, res) => {
-      const { teacher_id, verifyStatus } = req.body;
-      console.log(req.body);
+      const { teacher_id, verifyStatus, type } = req.body;
 
-
-      if (!teacher_id || !verifyStatus) {
-        return res.status(400).json({ message: 'Teacher ID and verify status are required' });
+      if (!teacher_id || !verifyStatus || !type) {
+        return res.status(400).json({ message: 'Teacher ID, verify status, and type are required' });
       }
 
       try {
+        // Update user verify status
         const updatedUser = await User.findByIdAndUpdate(
           teacher_id,
-          {
-            $set: {
-              verifyStatus,
-            },
-          },
+          { $set: { verifyStatus } },
           { new: true, runValidators: true } // Return the updated document and run validators
         );
 
         if (!updatedUser) {
           return res.status(404).json({ message: 'User not found' });
         }
-        else{
-            if (updatedUser.firebase_token) {
-                  const registrationToken = updatedUser.firebase_token;
-                  const title = `Profile Update Successfully`;
-                  const body = `Your profile has been ${verifyStatus} by the admin`;
 
-                  // Send notification
-                  const notificationResult = await sendFCMNotification(registrationToken, title, body);
-                  if (notificationResult.success) {
-                    console.log("Notification sent successfully:", notificationResult.response);
-                  } else {
-                    console.error("Failed to send notification:", notificationResult.error);
-                  }
-                  await addNotification(null, updatedUser._id, body, title, null);
-                }
+        // Only proceed with payment updates if verifyStatus is 'approved'
+        if (verifyStatus === 'approved') {
+          // Define the payment types
+          const paymentTypes = {
+            master: ['master_single', 'master_group'],
+            advance: ['advance_single', 'advance_group'],
+          };
+
+          // Validate type
+          if (!Object.keys(paymentTypes).includes(type)) {
+            return res.status(400).json({ message: "Invalid type. Must be 'master' or 'advance'." });
           }
+
+          // Fetch payment IDs based on type
+          const paymentIds = await TeacherPayment.find({ type: { $in: paymentTypes[type] } }).exec();
+
+          // Create a mapping of payment types to their IDs
+          const paymentIdMap = paymentIds.reduce((acc, payment) => {
+            acc[payment.type] = payment._id;
+            return acc;
+          }, {});
+
+          // Ensure all required payment types are available
+          if (paymentTypes[type].some(pt => !paymentIdMap[pt])) {
+            return res.status(500).json({ message: "Some payment types are missing from the database." });
+          }
+
+          // Update user payment IDs
+          updatedUser.groupPaymentId = paymentIdMap[paymentTypes[type][1]]; // Group payment ID
+          updatedUser.singlePaymentId = paymentIdMap[paymentTypes[type][0]]; // Single payment ID
+
+          // Save updated user with new payment IDs
+          await updatedUser.save();
+
+          // Fetch courses for the teacher
+          const courses = await Course.find({ teacher_id });
+
+          for (const course of courses) {
+            if (!course.paymentDetailsUpdated) { // Check if payment details are not already updated
+              let paymentDetails;
+              if (course.type === 'group_course') {
+                course.payment_id = updatedUser.groupPaymentId;
+                paymentDetails = await TeacherPayment.findById(updatedUser.groupPaymentId);
+                course.payment_type = 'group_course';
+              } else if (course.type === 'single_course') {
+                course.payment_id = updatedUser.singlePaymentId;
+                paymentDetails = await TeacherPayment.findById(updatedUser.singlePaymentId);
+                course.payment_type = 'single_course';
+              }
+
+              // Extract and assign the numeric amount
+              if (paymentDetails) {
+                course.amount = Number(paymentDetails.amount); // Ensure amount is a number
+              } else {
+                course.amount = null; // Default to null if no payment details found
+              }
+
+              // Mark payment details as updated
+              course.paymentDetailsUpdated = true;
+
+              // Log the updates for debugging
+              console.log(`Updating course ${course._id}:`, {
+                payment_id: course.payment_id,
+                amount: course.amount,
+                payment_type: course.payment_type,
+                paymentDetailsUpdated: course.paymentDetailsUpdated
+              });
+
+              await course.save();
+            }
+          }
+        }
+
+        // Send notification if there's a firebase token
+        if (updatedUser.firebase_token) {
+          const registrationToken = updatedUser.firebase_token;
+          const title = `Profile Update Successfully`;
+          const body = `Your profile has been ${verifyStatus} by the admin`;
+
+          // Send notification
+          const notificationResult = await sendFCMNotification(registrationToken, title, body);
+          if (notificationResult.success) {
+            console.log("Notification sent successfully:", notificationResult.response);
+          } else {
+            console.error("Failed to send notification:", notificationResult.error);
+          }
+          await addNotification(null, updatedUser._id, body, title, null);
+        }
 
         res.status(200).json({ message: 'Verify status updated successfully', data: updatedUser });
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Internal server error', error });
       }
-};
+    };
+
+
+
+
+
 
 
 module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus };

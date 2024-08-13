@@ -93,12 +93,14 @@ const courseSchema = new Schema(
     ],
 
     teacher_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    payment_id: { type: Schema.Types.ObjectId, ref: "TeacherPayment" },
-    amount: { type: Number },
+    payment_id: { type: Schema.Types.ObjectId, ref: "TeacherPayment", default: null },
+    amount: { type: Number, default: null },
     payment_type: {
       // New field for payment type
       type: String,
+      default: null
     },
+    paymentDetailsUpdated: { type: Boolean, default: false } // New field
   },
   { timestamps: true }
 );
