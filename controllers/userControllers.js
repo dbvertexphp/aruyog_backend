@@ -1533,7 +1533,7 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
       if (course.firebase_token) {
         const registrationToken = course.firebase_token;
         const title = `Course ${newDeletedAt ? "Deactivated" : "Activated"}`;
-        const body = `The course "${course.title}" has been ${newDeletedAt ? "deactivated" : "activated"}.`;
+        const body = `The course has been ${newDeletedAt ? "deactivated" : "activated"}.`;
 
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
         if (notificationResult.success) {
@@ -1814,7 +1814,6 @@ const getAllCourse = asyncHandler(async (req, res) => {
 
       return {
         _id: transformedCourse._id,
-        title: transformedCourse.title,
         category_name: transformedCourse.category_name,
         subcategory_name: transformedCourse.subcategory_name,
         category_image: transformedCourse.category_image,
@@ -1882,8 +1881,6 @@ const query = {
       .populate("category_id")
       .populate("teacher_id");
 
-    console.log(courses);
-
     const totalCount = await Course.countDocuments(query);
     const totalPages = Math.ceil(totalCount / perPage);
 
@@ -1910,7 +1907,6 @@ const query = {
 
       return {
         _id: transformedCourse._id,
-        title: transformedCourse.title,
         category_name: transformedCourse.category_name,
         subcategory_name: transformedCourse.subcategory_name,
         type: transformedCourse.type,

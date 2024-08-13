@@ -324,7 +324,7 @@ const addCourse = asyncHandler(async (req, res, next) => {
             teacher_id,
             payment_id: paymentDetails ? paymentDetails._id : null,
         amount: paymentDetails ? paymentDetails.amount : null,
-        payment_type: paymentDetails ? paymentDetails.type : null,
+        payment_type: paymentDetails ? paymentDetails.payment_type : null,
         deleted_at: null
           });
 
@@ -1042,18 +1042,18 @@ const updateTeacherStatus = async (req, res) => {
               if (course.type === 'group_course') {
                 course.payment_id = updatedUser.groupPaymentId;
                 paymentDetails = await TeacherPayment.findById(updatedUser.groupPaymentId);
-                course.payment_type = 'group_course';
               } else if (course.type === 'single_course') {
                 course.payment_id = updatedUser.singlePaymentId;
                 paymentDetails = await TeacherPayment.findById(updatedUser.singlePaymentId);
-                course.payment_type = 'single_course';
               }
 
               // Extract and assign the numeric amount
               if (paymentDetails) {
                 course.amount = Number(paymentDetails.amount); // Ensure amount is a number
+                course.payment_type = paymentDetails.payment_type
               } else {
                 course.amount = null; // Default to null if no payment details found
+                course.payment_type = null;
               }
 
               // Mark payment details as updated
@@ -1093,7 +1093,7 @@ const updateTeacherStatus = async (req, res) => {
         console.error(error);
         res.status(500).json({ message: 'Internal server error', error });
       }
-    };
+};
 
 
 

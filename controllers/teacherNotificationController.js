@@ -130,7 +130,7 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
       if (user.firebase_token) {
         const registrationToken = user.firebase_token;
         const title = "New Course Notification";
-        const body = `A new course notification for ${course.title}`;
+        const body = `A new course notification for`;
         console.log(registrationToken);
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
         if (notificationResult.success) {
@@ -147,7 +147,6 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
     const attendance = new TeacherAttendance({
       teacher_id: course.teacher_id,
       course_id: course_id,
-      course_title: course.title,
       attended_at: attended_at,
     });
     await attendance.save();
@@ -189,7 +188,7 @@ const resetCourseMeeting = asyncHandler(async (req, res) => {
       if (user.firebase_token) {
         const registrationToken = user.firebase_token;
         const title = "New Course Notification";
-        const body = `A new course notification for ${course.title}`;
+        const body = `A new course notification for`;
         console.log(registrationToken);
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
         if (notificationResult.success) {

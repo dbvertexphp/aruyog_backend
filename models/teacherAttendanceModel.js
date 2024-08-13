@@ -11,10 +11,6 @@ const TeacherAttendanceSchema = new mongoose.Schema({
     ref: "Course",
     required: true,
   },
-  course_title: {
-    type: String,
-    required: true,
-  },
   attended_at: {
     type: String, // Change to String to store formatted date
   },

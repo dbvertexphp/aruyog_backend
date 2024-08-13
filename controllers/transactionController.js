@@ -93,7 +93,7 @@ const addTransaction = asyncHandler(async (req, res) => {
     if (teacher && teacher.firebase_token) {
       const registrationToken = teacher.firebase_token;
       const title = "New Course Purchase";
-      const body = `A new transaction has been made for the course: ${course.title}.`;
+      const body = `A new transaction has been made for the course.`;
       console.log(registrationToken);
       const notificationResult = await sendFCMNotification(registrationToken, title, body);
       if (notificationResult.success) {
