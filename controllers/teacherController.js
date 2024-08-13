@@ -293,11 +293,6 @@ const addCourse = asyncHandler(async (req, res, next) => {
             paymentId = user.singlePaymentId;
           }
 
-          const paymentDetails = await TeacherPayment.findById(paymentId);
-          if (!paymentDetails) {
-            return res.status(404).json({ error: "You are only allowed to create course when admin approve your account and update your payment." });
-          }
-
           // Get the profile picture path if uploaded
           const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
 
@@ -326,9 +321,6 @@ const addCourse = asyncHandler(async (req, res, next) => {
             startTime,
             endTime,
             teacher_id,
-            payment_id: paymentDetails._id,
-            amount: paymentDetails.amount,
-            payment_type: paymentDetails.type,
           });
 
           const savedCourse = await newCourse.save();
@@ -914,6 +906,22 @@ const updateTeacherDocument = async (req, res) => {
           if (!updatedUser) {
             return res.status(404).json({ message: 'User not found' });
           }
+          else{
+            if (updatedUser.firebase_token) {
+                  const registrationToken = updatedUser.firebase_token;
+                  const title = `Profile Update Successfully`;
+                  const body = `Your profile has been successfully updated. An admin will review and approve your profile shortly.`;
+
+                  // Send notification
+                  const notificationResult = await sendFCMNotification(registrationToken, title, body);
+                  if (notificationResult.success) {
+                    console.log("Notification sent successfully:", notificationResult.response);
+                  } else {
+                    console.error("Failed to send notification:", notificationResult.error);
+                  }
+                  await addNotification(null, updatedUser._id, body, title, null);
+                }
+          }
 
           res.status(200).json({ message: 'User updated successfully', data: updatedUser });
         } catch (error) {
@@ -946,6 +954,22 @@ const updateTeacherStatus = async (req, res) => {
         if (!updatedUser) {
           return res.status(404).json({ message: 'User not found' });
         }
+        else{
+            if (updatedUser.firebase_token) {
+                  const registrationToken = updatedUser.firebase_token;
+                  const title = `Profile Update Successfully`;
+                  const body = `Your profile has been ${verifyStatus} by the admin`;
+
+                  // Send notification
+                  const notificationResult = await sendFCMNotification(registrationToken, title, body);
+                  if (notificationResult.success) {
+                    console.log("Notification sent successfully:", notificationResult.response);
+                  } else {
+                    console.error("Failed to send notification:", notificationResult.error);
+                  }
+                  await addNotification(null, updatedUser._id, body, title, null);
+                }
+          }
 
         res.status(200).json({ message: 'Verify status updated successfully', data: updatedUser });
       } catch (error) {

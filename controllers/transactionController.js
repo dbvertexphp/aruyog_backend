@@ -101,6 +101,7 @@ const addTransaction = asyncHandler(async (req, res) => {
       } else {
         console.error("Failed to send notification:", notificationResult.error);
       }
+      await addNotification(user_id, teacher_id, body, title, amount);
     }
     // const adminUser = await User.findOne({ role: "admin" });
 
@@ -123,7 +124,7 @@ const addTransaction = asyncHandler(async (req, res) => {
     // }
 
     // Add notification to the teacher's notification collection
-    await addNotification(user_id, teacher_id, body, title, amount);
+
 
     res.status(201).json({
       message: "Transaction added successfully",

@@ -45,7 +45,7 @@ const userSchema = mongoose.Schema({
   missingDays: { type: Number, default: 21, required: true },
   teacherUnavailabilityDates: {
     type: [String], // Array of strings
-    default: null // Default value is null
+    default: undefined // Default value is null
   },
   verifyStatus: {
     type: String,
