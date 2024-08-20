@@ -1809,8 +1809,8 @@ const getAllCourse = asyncHandler(async (req, res) => {
       transformedCourse.endDate = moment(course.endDate).format("YYYY/MM/DD");
 
       // Remove the category and subcategory objects from the response if needed
-      delete transformedCourse.category_id.subcategories;
-      delete transformedCourse.sub_category_id;
+      // delete transformedCourse.category_id.subcategories;
+      // delete transformedCourse.sub_category_id;
 
       return {
         _id: transformedCourse._id,
@@ -2043,7 +2043,6 @@ const updateMasterSinglePayment = asyncHandler(async (req, res, next) => {
 
 const updateMasterGroupPayment = asyncHandler(async (req, res, next) => {
   let { master_group, id } = req.body;
-  console.log(req.body);
   // Convert string values to numbers if they exist
   master_group = master_group ? parseFloat(master_group) : undefined;
 
@@ -2057,7 +2056,9 @@ const updateMasterGroupPayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Master payment not found.", 404));
   }
 
-  masterGroupPayment.master_group = master_group;
+  masterGroupPayment.amount = master_group;
+  console.log(masterGroupPayment);
+
 
   await masterGroupPayment.save();
 
@@ -2131,7 +2132,7 @@ const updateAdvanceSinglePayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Advance payment not found.", 404));
   }
 
-  advanceSinglePayment.advance_single = advance_single;
+  advanceSinglePayment.amount = advance_single;
 
   await advanceSinglePayment.save();
 
@@ -2158,7 +2159,7 @@ const updateAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
     return next(new ErrorHandler("Advance payment not found.", 404));
   }
 
-  advanceGroupPayment.advance_group = advance_group;
+  advanceGroupPayment.amount = advance_group;
 
   await advanceGroupPayment.save();
 

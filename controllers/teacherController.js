@@ -293,6 +293,9 @@ const addCourse = asyncHandler(async (req, res, next) => {
         paymentDetails = await TeacherPayment.findById(user.singlePaymentId);
       }
 
+      console.log(paymentDetails);
+
+
 
           // Get the profile picture path if uploaded
           const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
@@ -324,7 +327,7 @@ const addCourse = asyncHandler(async (req, res, next) => {
             teacher_id,
             payment_id: paymentDetails ? paymentDetails._id : null,
         amount: paymentDetails ? paymentDetails.amount : null,
-        payment_type: paymentDetails ? paymentDetails.payment_type : null,
+        payment_type: paymentDetails ? paymentDetails.type : null,
         deleted_at: null
           });
 
@@ -858,7 +861,8 @@ const teacherUnavailabilityDate = async (req,res) =>{
             console.error('Error updating unavailability dates:', error);
             res.status(500).json({ message: 'Server error.' });
           }
-}
+};
+
 const getteacherUnavailabilityDateById = asyncHandler(async (req, res) => {
       const {userId} = req.body; // Assuming you have user authentication middleware
 
@@ -936,50 +940,6 @@ const updateTeacherDocument = async (req, res) => {
       });
 };
 
-// const updateTeacherStatus = async (req, res) => {
-//       const { teacher_id, verifyStatus } = req.body;
-
-//       if (!teacher_id || !verifyStatus) {
-//         return res.status(400).json({ message: 'Teacher ID and verify status are required' });
-//       }
-
-//       try {
-//         const updatedUser = await User.findByIdAndUpdate(
-//           teacher_id,
-//           {
-//             $set: {
-//               verifyStatus,
-//             },
-//           },
-//           { new: true, runValidators: true } // Return the updated document and run validators
-//         );
-
-//         if (!updatedUser) {
-//           return res.status(404).json({ message: 'User not found' });
-//         }
-//         else{
-//             if (updatedUser.firebase_token) {
-//                   const registrationToken = updatedUser.firebase_token;
-//                   const title = `Profile Update Successfully`;
-//                   const body = `Your profile has been ${verifyStatus} by the admin`;
-
-//                   // Send notification
-//                   const notificationResult = await sendFCMNotification(registrationToken, title, body);
-//                   if (notificationResult.success) {
-//                     console.log("Notification sent successfully:", notificationResult.response);
-//                   } else {
-//                     console.error("Failed to send notification:", notificationResult.error);
-//                   }
-//                   await addNotification(null, updatedUser._id, body, title, null);
-//                 }
-//           }
-
-//         res.status(200).json({ message: 'Verify status updated successfully', data: updatedUser });
-//       } catch (error) {
-//         console.error(error);
-//         res.status(500).json({ message: 'Internal server error', error });
-//       }
-// };
 const updateTeacherStatus = async (req, res) => {
       const { teacher_id, verifyStatus, type } = req.body;
 
@@ -1094,11 +1054,5 @@ const updateTeacherStatus = async (req, res) => {
         res.status(500).json({ message: 'Internal server error', error });
       }
 };
-
-
-
-
-
-
 
 module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus };
