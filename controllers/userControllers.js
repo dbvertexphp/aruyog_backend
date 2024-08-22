@@ -2654,6 +2654,7 @@ const getTeachersBySubcategory = asyncHandler(async (req, res) => {
     // Find teacher details for these IDs and populate payment_id
     let teachers = await User.find({
       _id: { $in: teacherIds },
+      verifyStatus: "approved",
     }).populate("payment_id");
 
     // Filter teachers by search query (teacher name)
