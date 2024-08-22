@@ -326,9 +326,9 @@ const addCourse = asyncHandler(async (req, res, next) => {
             endTime,
             teacher_id,
             payment_id: paymentDetails ? paymentDetails._id : null,
-        amount: paymentDetails ? paymentDetails.amount : null,
-        payment_type: paymentDetails ? paymentDetails.type : null,
-        deleted_at: null
+            amount: paymentDetails ? paymentDetails.amount : null,
+            payment_type: paymentDetails ? paymentDetails.type : null,
+            deleted_at: null
           });
 
           const savedCourse = await newCourse.save();
@@ -952,7 +952,7 @@ const updateTeacherStatus = async (req, res) => {
         const updatedUser = await User.findByIdAndUpdate(
           teacher_id,
           { $set: { verifyStatus } },
-          { new: true, runValidators: true } // Return the updated document and run validators
+          { new: true, runValidators: true }
         );
 
         if (!updatedUser) {
@@ -961,43 +961,37 @@ const updateTeacherStatus = async (req, res) => {
 
         // Only proceed with payment updates if verifyStatus is 'approved'
         if (verifyStatus === 'approved') {
-          // Define the payment types
           const paymentTypes = {
             master: ['master_single', 'master_group'],
             advance: ['advance_single', 'advance_group'],
           };
 
-          // Validate type
           if (!Object.keys(paymentTypes).includes(type)) {
             return res.status(400).json({ message: "Invalid type. Must be 'master' or 'advance'." });
           }
 
-          // Fetch payment IDs based on type
           const paymentIds = await TeacherPayment.find({ type: { $in: paymentTypes[type] } }).exec();
-
-          // Create a mapping of payment types to their IDs
           const paymentIdMap = paymentIds.reduce((acc, payment) => {
             acc[payment.type] = payment._id;
             return acc;
           }, {});
 
-          // Ensure all required payment types are available
           if (paymentTypes[type].some(pt => !paymentIdMap[pt])) {
             return res.status(500).json({ message: "Some payment types are missing from the database." });
           }
 
-          // Update user payment IDs
-          updatedUser.groupPaymentId = paymentIdMap[paymentTypes[type][1]]; // Group payment ID
-          updatedUser.singlePaymentId = paymentIdMap[paymentTypes[type][0]]; // Single payment ID
+          updatedUser.groupPaymentId = paymentIdMap[paymentTypes[type][1]];
+          updatedUser.singlePaymentId = paymentIdMap[paymentTypes[type][0]];
 
-          // Save updated user with new payment IDs
           await updatedUser.save();
 
-          // Fetch courses for the teacher
           const courses = await Course.find({ teacher_id });
 
           for (const course of courses) {
-            if (!course.paymentDetailsUpdated) { // Check if payment details are not already updated
+            console.log(course.payment_id);
+            console.log(updatedUser.groupPaymentId);
+
+            if (!course.paymentDetailsUpdated ) {
               let paymentDetails;
               if (course.type === 'group_course') {
                 course.payment_id = updatedUser.groupPaymentId;
@@ -1007,42 +1001,27 @@ const updateTeacherStatus = async (req, res) => {
                 paymentDetails = await TeacherPayment.findById(updatedUser.singlePaymentId);
               }
 
-              // Extract and assign the numeric amount
               if (paymentDetails) {
-                course.amount = Number(paymentDetails.amount); // Ensure amount is a number
-                course.payment_type = paymentDetails.payment_type
+                course.amount = Number(paymentDetails.amount);
+                course.payment_type = paymentDetails.type;
               } else {
-                course.amount = null; // Default to null if no payment details found
+                course.amount = null;
                 course.payment_type = null;
               }
 
-              // Mark payment details as updated
-              course.paymentDetailsUpdated = true;
-
-              // Log the updates for debugging
-              console.log(`Updating course ${course._id}:`, {
-                payment_id: course.payment_id,
-                amount: course.amount,
-                payment_type: course.payment_type,
-                paymentDetailsUpdated: course.paymentDetailsUpdated
-              });
-
+               course.paymentDetailsUpdated = true;
               await course.save();
             }
           }
         }
 
-        // Send notification if there's a firebase token
         if (updatedUser.firebase_token) {
           const registrationToken = updatedUser.firebase_token;
           const title = `Profile Update Successfully`;
           const body = `Your profile has been ${verifyStatus} by the admin`;
 
-          // Send notification
           const notificationResult = await sendFCMNotification(registrationToken, title, body);
-          if (notificationResult.success) {
-            console.log("Notification sent successfully:", notificationResult.response);
-          } else {
+          if (!notificationResult.success) {
             console.error("Failed to send notification:", notificationResult.error);
           }
           await addNotification(null, updatedUser._id, body, title, null);
@@ -1054,5 +1033,7 @@ const updateTeacherStatus = async (req, res) => {
         res.status(500).json({ message: 'Internal server error', error });
       }
 };
+
+
 
 module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus };
