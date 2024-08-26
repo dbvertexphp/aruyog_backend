@@ -406,6 +406,74 @@ const updateCourseDates = asyncHandler(async (req, res) => {
   }
 });
 
+const updateCourse = asyncHandler(async (req, res, next) => {
+      req.uploadPath = "uploads/course";
+      upload.single("course_image")(req, res, async (err) => {
+        if (err) {
+          return next(new ErrorHandler(err.message, 400));
+        }
+
+        const { course_id, category_id, sub_category_id, startTime, endTime } = req.body;
+        const teacher_id = req.headers.userID; // Assuming user authentication middleware sets this header
+
+        try {
+          // Validate course_id presence
+          if (!course_id) {
+            return res.status(400).json({
+              error: "Course ID is required.",
+            });
+          }
+
+          // Find the course by ID and ensure it belongs to the authenticated teacher
+          const course = await Course.findOne({ _id: course_id, teacher_id });
+
+          if (!course) {
+            return res.status(404).json({ error: "Course not found or you do not have permission to update this course." });
+          }
+
+          // Check if the userIds array is empty
+          if (course.userIds && course.userIds.length > 0) {
+            return res.status(400).json({
+              error: "This course cannot be edited because it already has enrolled users.",
+            });
+          }
+
+          // Ensure that if category_id is updated, sub_category_id is also provided
+          if (category_id && !sub_category_id) {
+            return res.status(400).json({
+              error: "If category_id is updated, sub_category_id must also be provided.",
+            });
+          }
+
+          // Get the new course image path if uploaded
+          const course_image = req.file ? `${req.uploadPath}/${req.file.filename}` : course.course_image;
+
+          // Update the course with the new data only if provided
+          if (category_id) course.category_id = category_id;
+          if (sub_category_id) course.sub_category_id = sub_category_id;
+          if (startTime) course.startTime = startTime;
+          if (endTime) course.endTime = endTime;
+          course.course_image = course_image;
+
+          const updatedCourse = await course.save();
+
+          res.status(200).json({
+            _id: updatedCourse._id,
+            course_image: updatedCourse.course_image,
+            category_id: updatedCourse.category_id,
+            sub_category_id: updatedCourse.sub_category_id,
+            startTime: updatedCourse.startTime,
+            endTime: updatedCourse.endTime,
+            teacher_id: updatedCourse.teacher_id,
+            status: true,
+          });
+        } catch (error) {
+          console.error("Error updating course:", error.message);
+          res.status(500).json({ error: "Internal Server Error" });
+        }
+      });
+    });
+
 const getTodayCourse = asyncHandler(async (req, res) => {
   const teacherId = req.headers.userID; // Assuming user authentication middleware sets this header
 
@@ -1036,4 +1104,4 @@ const updateTeacherStatus = async (req, res) => {
 
 
 
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus,updateCourse };
