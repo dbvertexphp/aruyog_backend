@@ -118,12 +118,12 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
     }
 
     // Decrease missingDays for the teacher
-    const teacher = await User.findOne({ _id: teacher_id });
-    console.log(teacher);
-    if (teacher) {
-      teacher.missingDays = Math.max(0, teacher.missingDays - 1); // Ensure it doesn't go below zero
-      await teacher.save();
-    }
+    //     const teacher = await User.findOne({ _id: teacher_id });
+    //     console.log(teacher);
+    //     if (teacher) {
+    //       teacher.missingDays = Math.max(0, teacher.missingDays - 1); // Ensure it doesn't go below zero
+    //       await teacher.save();
+    //     }
 
     // Send notifications to each user
     const notificationPromises = users.map(async (user) => {
@@ -156,6 +156,27 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
     console.error("Error sending notifications:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
+});
+
+const setAttendance = asyncHandler(async (req, res) => {
+      const teacher_id = req.headers.userID;
+
+      // First, check if the teacher exists
+      const teacher = await User.findById(teacher_id);
+
+      // If teacher not found, return early with 404 status
+      if (!teacher) {
+        return res.status(404).json({ message: "Teacher not found. Set Attendance Failed" });
+      }
+
+      // Modify the teacher's missingDays, ensuring it doesn't go below zero
+      teacher.missingDays = Math.max(0, teacher.missingDays - 1);
+
+      // Save the updated teacher data
+      await teacher.save();
+
+      // Return success response
+      res.status(200).json({ message: "Attendance set successfully" });
 });
 
 const resetCourseMeeting = asyncHandler(async (req, res) => {
@@ -266,4 +287,5 @@ module.exports = {
   getMissingAttendanceDays,
   resetCourseMeeting,
   getTeacherNotificationsByAdmin,
+  setAttendance
 };

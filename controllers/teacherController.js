@@ -140,7 +140,6 @@ const updateTeacherProfileData = asyncHandler(async (req, res) => {
 
 const getTeacherProfileData = asyncHandler(async (req, res) => {
   const userId = req.headers.userID; // Assuming you have user authentication middleware
-
   try {
     // Find the user by ID
     const user = await User.findById({ _id: userId, deleted_at: null });
@@ -472,7 +471,7 @@ const updateCourse = asyncHandler(async (req, res, next) => {
           res.status(500).json({ error: "Internal Server Error" });
         }
       });
-    });
+});
 
 const getTodayCourse = asyncHandler(async (req, res) => {
   const teacherId = req.headers.userID; // Assuming user authentication middleware sets this header
@@ -896,39 +895,62 @@ const autoDeactivateCourses = async () => {
   }
 };
 
-const teacherUnavailabilityDate = async (req,res) =>{
+const teacherUnavailabilityDate = async (req, res) => {
       try {
-            const userId = req.headers.userID;
-            const { teacherUnavailabilityDates } = req.body;
+        const userId = req.headers.userID;
+        const { teacherUnavailabilityDates } = req.body;
 
-            if (!userId) {
-              return res.status(400).json({ message: 'UserID is required in headers.' });
-            }
+        if (!userId) {
+          return res.status(400).json({ message: 'UserID is required in headers.' });
+        }
 
-            if (!Array.isArray(teacherUnavailabilityDates)) {
-              return res.status(400).json({ message: 'teacherUnavailabilityDates should be an array.' });
-            }
+        if (!Array.isArray(teacherUnavailabilityDates)) {
+          return res.status(400).json({ message: 'teacherUnavailabilityDates should be an array.' });
+        }
 
-            // Find the user and update the teacherUnavailabilityDates field
-            const updatedUser = await User.findByIdAndUpdate(
-              userId,
-              { teacherUnavailabilityDates },
-              { new: true, runValidators: true } // Return the updated user and validate the data
-            );
+        // Prepare dates with timestamps
+        const unavailabilityWithTimestamps = teacherUnavailabilityDates.map(date => ({
+          date,
+          addedAt: new Date(), // Store the current timestamp
+        }));
 
-            if (!updatedUser) {
-              return res.status(404).json({ message: 'User not found.' });
-            }
+        // Update user with new unavailability dates
+        const updatedUser = await User.findByIdAndUpdate(
+          userId,
+          { $push: { teacherUnavailabilityDates: { $each: unavailabilityWithTimestamps } } },
+          { new: true, runValidators: true }
+        );
 
-            res.status(200).json({
-              message: 'Unavailability dates updated successfully.',
-              user: updatedUser
-            });
+        if (!updatedUser) {
+          return res.status(404).json({ message: 'User not found.' });
+        }
 
-          } catch (error) {
-            console.error('Error updating unavailability dates:', error);
-            res.status(500).json({ message: 'Server error.' });
-          }
+        res.status(200).json({
+          message: 'Unavailability dates updated successfully.',
+          user: updatedUser
+        });
+
+      } catch (error) {
+        console.error('Error updating unavailability dates:', error);
+        res.status(500).json({ message: 'Server error.' });
+      }
+};
+
+const cleanOldUnavailabilityDates = async () => {
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      try {
+        // Find and update users by removing unavailability dates older than 3 months
+        const result = await User.updateMany(
+          { 'teacherUnavailabilityDates.addedAt': { $lt: threeMonthsAgo } },
+          { $pull: { teacherUnavailabilityDates: { addedAt: { $lt: threeMonthsAgo } } } }
+        );
+
+        console.log(`${result.modifiedCount} users updated: Old unavailability dates cleaned successfully.`);
+      } catch (error) {
+        console.error("Error cleaning unavailability dates:", error);
+      }
 };
 
 const getteacherUnavailabilityDateById = asyncHandler(async (req, res) => {
@@ -956,7 +978,7 @@ const updateTeacherDocument = async (req, res) => {
       const userID = req.headers.userID;
       req.uploadPath = "uploads/teacherDocument";
 
-      upload.single("teacherDocument")(req, res, async (err) => {
+      upload.array("teacherDocument", 5)(req, res, async (err) => { // Allow up to 5 files
         if (err) {
           return res.status(400).json({ message: 'File upload error', error: err });
         }
@@ -968,13 +990,15 @@ const updateTeacherDocument = async (req, res) => {
         }
 
         try {
-          const teacherDocument = req.file ? `${req.uploadPath}/${req.file.filename}` : null;
+          // Ensure the uploaded files match the schema
+          const teacherDocuments = req.files ? req.files.map(file => ({ image: `${req.uploadPath}/${file.filename}` })) : [];
+
           const updatedUser = await User.findByIdAndUpdate(
             userID,
             {
               $set: {
                 verifyStatus,
-                teacherDocument
+                teacherDocuments // Store array of objects with image field
               }
             },
             { new: true, runValidators: true } // Return the updated document and run validators
@@ -982,22 +1006,21 @@ const updateTeacherDocument = async (req, res) => {
 
           if (!updatedUser) {
             return res.status(404).json({ message: 'User not found' });
-          }
-          else{
+          } else {
             if (updatedUser.firebase_token) {
-                  const registrationToken = updatedUser.firebase_token;
-                  const title = `Profile Update Successfully`;
-                  const body = `Your profile has been successfully updated. An admin will review and approve your profile shortly.`;
+              const registrationToken = updatedUser.firebase_token;
+              const title = `Profile Update Successfully`;
+              const body = `Your profile has been successfully updated. An admin will review and approve your profile shortly.`;
 
-                  // Send notification
-                  const notificationResult = await sendFCMNotification(registrationToken, title, body);
-                  if (notificationResult.success) {
-                    console.log("Notification sent successfully:", notificationResult.response);
-                  } else {
-                    console.error("Failed to send notification:", notificationResult.error);
-                  }
-                  await addNotification(null, updatedUser._id, body, title, null);
-                }
+              // Send notification
+              const notificationResult = await sendFCMNotification(registrationToken, title, body);
+              if (notificationResult.success) {
+                console.log("Notification sent successfully:", notificationResult.response);
+              } else {
+                console.error("Failed to send notification:", notificationResult.error);
+              }
+              await addNotification(null, updatedUser._id, body, title, null);
+            }
           }
 
           res.status(200).json({ message: 'User updated successfully', data: updatedUser });
@@ -1102,6 +1125,4 @@ const updateTeacherStatus = async (req, res) => {
       }
 };
 
-
-
-module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus,updateCourse };
+module.exports = { updateTeacherProfileData, addCourse, getTodayCourse, getMyClasses, getTeacherProfileData, updateCourseDates, getTeacherProfileDataByTeacherId, CourseActiveStatus, autoDeactivateCourses, teacherUnavailabilityDate, updateTeacherDocument, getteacherUnavailabilityDateById, notifyTeachersAboutEndingCourses, updateTeacherStatus,updateCourse, cleanOldUnavailabilityDates };

@@ -43,20 +43,22 @@ const userSchema = mongoose.Schema({
   singlePaymentId: { type: mongoose.Schema.Types.ObjectId, default: null, ref: "TeacherPayment" },
   firebase_token: { type: String, default: null },
   missingDays: { type: Number, default: 21, required: true },
-  teacherUnavailabilityDates: {
-    type: [String], // Array of strings
-    default: undefined // Default value is null
-  },
+  teacherUnavailabilityDates: [
+    {
+      date: { type: String, required: true }, // Store the date as a string
+      addedAt: { type: Date, default: Date.now } // Store the timestamp of when it was added
+    },
+  ],
   verifyStatus: {
     type: String,
-    enum: ['pending', 'approved', 'not-approved'],
-    default: 'not-approved'
+    enum: ["pending", "approved", "not-approved"],
+    default: "not-approved",
   },
-  teacherDocument: {
-    type: {
+  teacherDocuments: [
+    {
       image: { type: String }, // URL or path to image
     },
-},
+  ],
   datetime: {
     type: String,
     default: () => moment().tz("Asia/Kolkata").format("YYYY-MMM-DD hh:mm:ss A"),

@@ -444,6 +444,7 @@ const resendOTP = asyncHandler(async (req, res) => {
     status: true,
   });
 });
+
 const ForgetresendOTP = asyncHandler(async (req, res) => {
   const { mobile } = req.body;
 
@@ -505,6 +506,7 @@ const profilePicUpload = asyncHandler(async (req, res) => {
   //   throw new ErrorHandler("No file uploaded", 400);
   // });
 });
+
 const profilePicKey = asyncHandler(async (req, res) => {
   const userId = req.user._id; // Assuming you have user authentication middleware
   const profilePicKeys = req.body.profilePicKey;
@@ -1491,7 +1493,6 @@ const getNotificationId = asyncHandler(async (req, res) => {
   }
 });
 
-
 const UserAdminStatus = asyncHandler(async (req, res) => {
   const userId = req.body.userId;
   try {
@@ -1553,6 +1554,7 @@ const UserAdminStatus = asyncHandler(async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 const getUnreadCount = async (req, res) => {
   try {
     const user_id = req.user._id;
@@ -1856,12 +1858,12 @@ const getCoursesByTeacherId = asyncHandler(async (req, res) => {
   const perPage = 10; // You can adjust this according to your requirements
 
   // Build the query based on search and teacher_id
-//   const query = {
-//     $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
-//   };
-const query = {
-      $and: [{ teacher_id }],
-};
+  //   const query = {
+  //     $and: [{ teacher_id }, { $or: [{ title: { $regex: search, $options: "i" } }] }],
+  //   };
+  const query = {
+    $and: [{ teacher_id }],
+  };
 
   // Sorting based on sort field
   let sortCriteria = {};
@@ -2059,7 +2061,6 @@ const updateMasterGroupPayment = asyncHandler(async (req, res, next) => {
   masterGroupPayment.amount = master_group;
   console.log(masterGroupPayment);
 
-
   await masterGroupPayment.save();
 
   res.status(200).json({
@@ -2092,6 +2093,7 @@ const addAdvanceSinglePayment = asyncHandler(async (req, res, next) => {
     status: true,
   });
 });
+
 const addAdvanceGroupPayment = asyncHandler(async (req, res, next) => {
   let { advance_group } = req.body;
 
@@ -2247,86 +2249,83 @@ const getGroupPayments = asyncHandler(async (req, res) => {
   }
 });
 
-
 const updateUserPayment = async (req, res, next) => {
-      const { userId, type } = req.body;
+  const { userId, type } = req.body;
 
-      if (!userId || !type) {
-        return next(new ErrorHandler("Please provide userId and type.", 400));
+  if (!userId || !type) {
+    return next(new ErrorHandler("Please provide userId and type.", 400));
+  }
+
+  try {
+    // Define the payment types
+    const paymentTypes = {
+      master: ["master_single", "master_group"],
+      advance: ["advance_single", "advance_group"],
+    };
+
+    // Validate type
+    if (!Object.keys(paymentTypes).includes(type)) {
+      return next(new ErrorHandler("Invalid type. Must be 'master' or 'advance'.", 400));
+    }
+
+    // Fetch payment IDs based on type
+    const paymentIds = await TeacherPayment.find({ type: { $in: paymentTypes[type] } }).exec();
+
+    // Create a mapping of payment types to their IDs
+    const paymentIdMap = paymentIds.reduce((acc, payment) => {
+      acc[payment.type] = payment._id;
+      return acc;
+    }, {});
+
+    // Ensure all required payment types are available
+    if (paymentTypes[type].some((pt) => !paymentIdMap[pt])) {
+      return next(new ErrorHandler("Some payment types are missing from the database.", 500));
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return next(new ErrorHandler("User not found.", 404));
+    }
+
+    // Update user's payment IDs based on the type
+    user.groupPaymentId = paymentIdMap[paymentTypes[type][1]]; // Group payment ID
+    user.singlePaymentId = paymentIdMap[paymentTypes[type][0]]; // Single payment ID
+
+    user.updatedAt = Date.now();
+
+    const updatedUser = await user.save();
+
+    if (updatedUser) {
+      // Check if user has a firebase_token
+      if (updatedUser.firebase_token) {
+        const registrationToken = updatedUser.firebase_token;
+        const title = `${updatedUser.full_name} Payment Updated`;
+        const body = `${updatedUser.full_name} Payment Updated`;
+
+        // Send notification
+        const notificationResult = await sendFCMNotification(registrationToken, title, body);
+
+        if (notificationResult.success) {
+          console.log("Notification sent successfully:", notificationResult.response);
+        } else {
+          console.error("Failed to send notification:", notificationResult.error);
+        }
+        await addNotification(null, userId, body, title, null);
       }
+    }
 
-      try {
-        // Define the payment types
-        const paymentTypes = {
-          master: ['master_single', 'master_group'],
-          advance: ['advance_single', 'advance_group'],
-        };
-
-        // Validate type
-        if (!Object.keys(paymentTypes).includes(type)) {
-          return next(new ErrorHandler("Invalid type. Must be 'master' or 'advance'.", 400));
-        }
-
-        // Fetch payment IDs based on type
-        const paymentIds = await TeacherPayment.find({ type: { $in: paymentTypes[type] } }).exec();
-
-        // Create a mapping of payment types to their IDs
-        const paymentIdMap = paymentIds.reduce((acc, payment) => {
-          acc[payment.type] = payment._id;
-          return acc;
-        }, {});
-
-        // Ensure all required payment types are available
-        if (paymentTypes[type].some(pt => !paymentIdMap[pt])) {
-          return next(new ErrorHandler("Some payment types are missing from the database.", 500));
-        }
-
-        const user = await User.findById(userId);
-
-        if (!user) {
-          return next(new ErrorHandler("User not found.", 404));
-        }
-
-        // Update user's payment IDs based on the type
-        user.groupPaymentId = paymentIdMap[paymentTypes[type][1]]; // Group payment ID
-        user.singlePaymentId = paymentIdMap[paymentTypes[type][0]]; // Single payment ID
-
-        user.updatedAt = Date.now();
-
-        const updatedUser = await user.save();
-
-        if (updatedUser) {
-          // Check if user has a firebase_token
-          if (updatedUser.firebase_token) {
-            const registrationToken = updatedUser.firebase_token;
-            const title = `${updatedUser.full_name} Payment Updated`;
-            const body = `${updatedUser.full_name} Payment Updated`;
-
-            // Send notification
-            const notificationResult = await sendFCMNotification(registrationToken, title, body);
-
-            if (notificationResult.success) {
-              console.log("Notification sent successfully:", notificationResult.response);
-            } else {
-              console.error("Failed to send notification:", notificationResult.error);
-            }
-            await addNotification(null, userId, body, title, null);
-          }
-        }
-
-        res.status(200).json({
-          _id: user._id,
-          groupPaymentId: user.groupPaymentId,
-          singlePaymentId: user.singlePaymentId,
-          updatedAt: user.updatedAt,
-        });
-
-      } catch (error) {
-        console.error("Error updating user payment:", error);
-        return next(new ErrorHandler("Unable to update user payment.", 500));
-      }
+    res.status(200).json({
+      _id: user._id,
+      groupPaymentId: user.groupPaymentId,
+      singlePaymentId: user.singlePaymentId,
+      updatedAt: user.updatedAt,
+    });
+  } catch (error) {
+    console.error("Error updating user payment:", error);
+    return next(new ErrorHandler("Unable to update user payment.", 500));
+  }
 };
-
 
 const getTeacherAndCourseByTeacher_Id = async (req, res, next) => {
   const { teacher_id } = req.body;
@@ -2335,7 +2334,7 @@ const getTeacherAndCourseByTeacher_Id = async (req, res, next) => {
     // Find the teacher by ID and populate payment information
     const teacher = await User.findOne({
       _id: teacher_id,
-      verifyStatus: "approved"
+      verifyStatus: "approved",
     }).populate({
       path: "payment_id",
     });
@@ -3058,8 +3057,6 @@ const askForDemo = asyncHandler(async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
-
 
 module.exports = {
   getUsers,
