@@ -2974,7 +2974,7 @@ const updateCourseWithDemoId = asyncHandler(async (req, res) => {
     const course = await Course.findById(course_id);
 
     if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+      return res.status(404).json({ message: "Course Not found" });
     }
 
     // Check if the user has already taken a demo for this course
