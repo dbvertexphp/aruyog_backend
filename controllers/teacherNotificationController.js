@@ -199,9 +199,9 @@ const resetCourseMeeting = asyncHandler(async (req, res) => {
     // Fetch all users subscribed to the course
     const users = await User.find({ _id: { $in: course.userIds } });
 
-    if (users.length === 0) {
-      return res.status(404).json({ message: "No users subscribed to this course" });
-    }
+//     if (users.length === 0) {
+//       return res.status(404).json({ message: "No users subscribed to this course" });
+//     }
 
     // Send notifications to each user
     const notificationPromises = users.map(async (user) => {

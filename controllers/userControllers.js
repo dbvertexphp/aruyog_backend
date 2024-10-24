@@ -3021,52 +3021,62 @@ const updateCourseWithDemoId = asyncHandler(async (req, res) => {
 
 
 const askForDemo = asyncHandler(async (req, res) => {
-  const user_id = req.headers.userID;
-  console.log(user_id);
-  const { course_id, type } = req.body;
+      const user_id = req.headers.userID;
+      const { course_id, type, cb_id } = req.body;
 
-  if (!user_id || !course_id || !type) {
-    return res.status(400).json({ message: "Invalid input" });
-  }
-
-  try {
-    const course = await Course.findById(course_id);
-
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    // Check if the user has already purchased the course
-    if (course.askDemoids.includes(user_id) && course.completeAskDemoids.includes(user_id)) {
-      return res.status(400).json({
-        message: "You have already Demo this course",
-        status: false,
-      });
-    }
-
-    if (type == "askDemoids") {
-      if (!course.askDemoids.includes(user_id)) {
-        // Update Course with userId if not already included
-        course.askDemoids.push(user_id);
-        await course.save();
+      if (!user_id || !course_id || !type || !cb_id) {
+        return res.status(400).json({ message: "Invalid input" });
       }
-    } else if (type == "completeAskDemoids") {
-      if (!course.completeAskDemoids.includes(user_id)) {
-        // Update Course with userId if not already included
-        course.completeAskDemoids.push(user_id);
-        await course.save();
-      }
-    }
 
-    res.status(201).json({
-      message: "Demo added successfully",
-      course: course,
-    });
-  } catch (error) {
-    console.error("Error adding Demo:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
+      try {
+        const course = await Course.findById(course_id);
+
+        if (!course) {
+          return res.status(404).json({ message: "Course not found" });
+        }
+
+        // Check if the user has already purchased the course
+        if (course.askDemoids.includes(user_id) && course.completeAskDemoids.includes(user_id)) {
+          return res.status(400).json({
+            message: "You have already Demo this course",
+            status: false,
+          });
+        }
+
+        // Update the course with userId and cb_id based on type
+        if (type === "askDemoids") {
+          if (!course.askDemoids.includes(user_id)) {
+            // Update Course with userId if not already included
+            course.askDemoids.push(user_id);
+          }
+          // Add cb_id to the course if not already included
+          if (!course.cb_id.includes(cb_id)) {
+            course.cb_id.push(cb_id);
+          }
+        } else if (type === "completeAskDemoids") {
+          if (!course.completeAskDemoids.includes(user_id)) {
+            // Update Course with userId if not already included
+            course.completeAskDemoids.push(user_id);
+          }
+          // Add cb_id to the course if not already included
+          if (!course.cb_id.includes(cb_id)) {
+            course.cb_id.push(cb_id);
+          }
+        }
+
+        // Save the updated course
+        await course.save();
+
+        res.status(201).json({
+          message: "Demo added successfully",
+          course: course,
+        });
+      } catch (error) {
+        console.error("Error adding Demo:", error.message);
+        res.status(500).json({ message: "Internal Server Error" });
+      }
 });
+
 
 module.exports = {
   getUsers,
