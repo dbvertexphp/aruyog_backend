@@ -113,9 +113,9 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
     // Fetch all users subscribed to the course
     const users = await User.find({ _id: { $in: course.userIds } });
 
-    if (users.length === 0) {
-      return res.status(404).json({ message: "No users subscribed to this course" });
-    }
+//     if (users.length === 0) {
+//       return res.status(404).json({ message: "No users subscribed to this course" });
+//     }
 
     // Decrease missingDays for the teacher
     //     const teacher = await User.findOne({ _id: teacher_id });
@@ -129,9 +129,8 @@ const sendCourseNotification = asyncHandler(async (req, res) => {
     const notificationPromises = users.map(async (user) => {
       if (user.firebase_token) {
         const registrationToken = user.firebase_token;
-        const title = "New Course Notification";
-        const body = `A new course notification for`;
-        console.log(registrationToken);
+        const title = "Course Notification";
+        const body = `Your class has started at ${course.startTime}.`;
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
         if (notificationResult.success) {
           console.log("Notification sent successfully:", notificationResult.response);
@@ -208,8 +207,8 @@ const resetCourseMeeting = asyncHandler(async (req, res) => {
     const notificationPromises = users.map(async (user) => {
       if (user.firebase_token) {
         const registrationToken = user.firebase_token;
-        const title = "New Course Notification";
-        const body = `A new course notification for`;
+        const title = "Course Notification";
+        const body = `Your class will end at ${course.endTime}.`;
         console.log(registrationToken);
         const notificationResult = await sendFCMNotification(registrationToken, title, body);
         if (notificationResult.success) {
