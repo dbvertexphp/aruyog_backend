@@ -2963,52 +2963,62 @@ function groupTransactionsByMonth(transactions) {
 }
 
 const updateCourseWithDemoId = asyncHandler(async (req, res) => {
-  const user_id = req.headers.userID;
-  const { teacher_id, course_id } = req.body;
+      const user_id = req.headers.userID;
+      const { teacher_id, course_id, cb_id } = req.body;
 
-  if (!teacher_id || !course_id || !user_id) {
-    return res.status(400).json({ message: "Invalid input" });
-  }
+      if (!teacher_id || !course_id || !user_id || !cb_id) {
+        return res.status(400).json({ message: "Invalid input" });
+      }
 
-  try {
-    const course = await Course.findById(course_id);
+      try {
+        const course = await Course.findById(course_id);
 
-    if (!course) {
-      return res.status(404).json({ message: "Course Not found" });
-    }
+        if (!course) {
+          return res.status(404).json({ message: "Course Not found" });
+        }
 
-    // Check if the user has already taken a demo for this course
-    if (course.askdemoid.includes(user_id)) {
-      return res.status(400).json({
-        message: "You have already taken a demo for this course",
-        status: false,
-      });
-    }
+        // Check if the user has already taken a demo for this course
+        if (course.askdemoid.includes(user_id)) {
+          return res.status(400).json({
+            message: "You have already taken a demo for this course",
+            status: false,
+          });
+        }
 
-    // Check if the teacher is associated with the course
-    if (course.teacher_id.toString() !== teacher_id) {
-      return res.status(403).json({ message: "Teacher not authorized for this course" });
-    }
+        // Check if the teacher is associated with the course
+        if (course.teacher_id.toString() !== teacher_id) {
+          return res.status(403).json({ message: "Teacher not authorized for this course" });
+        }
 
-    // Add user_id to askdemoid array if not already present
-    if (!course.askdemoid) {
-      course.askdemoid = [];
-    }
+        // Add user_id to askdemoid array if not already present
+        if (!course.askdemoid) {
+          course.askdemoid = [];
+        }
+        if (!course.askdemoid.includes(user_id)) {
+          course.askdemoid.push(user_id);
+        }
 
-    if (!course.askdemoid.includes(user_id)) {
-      course.askdemoid.push(user_id);
-      await course.save();
-    }
+        // Add cb_id to the cb_id array if not already present
+        if (!course.cb_id) {
+          course.cb_id = [];
+        }
+        if (!course.cb_id.includes(cb_id)) {
+          course.cb_id.push(cb_id);
+        }
 
-    res.status(200).json({
-      message: "User ID added to askdemoid successfully",
-      course,
-    });
-  } catch (error) {
-    console.error("Error updating course:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
+        // Save the course document with the updated fields
+        await course.save();
+
+        res.status(200).json({
+          message: "User ID and cb_id added successfully",
+          course,
+        });
+      } catch (error) {
+        console.error("Error updating course:", error.message);
+        res.status(500).json({ message: "Internal Server Error" });
+      }
 });
+
 
 const askForDemo = asyncHandler(async (req, res) => {
   const user_id = req.headers.userID;

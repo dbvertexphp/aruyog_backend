@@ -85,6 +85,13 @@ const courseSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    cb_id: {
+      type: [
+        {
+          type: String,
+        },
+      ],
+    },
     days: [
       {
         type: String,
